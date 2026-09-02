@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from cobre_bridge.errors import FieldParseError
 from cobre_bridge.horizon import (
     BIG_M,
     POST_STUDY_YEAR,
@@ -52,6 +53,14 @@ def test_study_horizon_example_case():
     assert h.last_study_stage == 27
     assert h.first_year_stages == 4
     assert h.pos_months == 36
+
+
+@pytest.mark.parametrize("field", ["ano_inicio_estudo", "mes_inicio_estudo"])
+def test_study_horizon_reports_missing_start_date_field(field: str) -> None:
+    dger = _dger()
+    setattr(dger, field, None)
+    with pytest.raises(FieldParseError, match="format compatibility"):
+        study_horizon(dger)
 
 
 def test_january_start_has_full_first_year():

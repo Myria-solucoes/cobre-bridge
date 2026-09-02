@@ -41,6 +41,19 @@ def test_required_reader_parses_once_and_caches(tmp_path: Path) -> None:
     mock_dger.read.assert_called_once_with(str(tmp_path / "dger.dat"))
 
 
+def test_dger_latin1_content_is_decoded_before_inewave(tmp_path: Path) -> None:
+    """A Latin-1 byte must not make cfinterface retry and duplicate sections."""
+    dger_path = tmp_path / "dger.dat"
+    dger_path.write_bytes(b"DGER comment\xba\n")
+    case = NewaveCase(files=make_nw_files(tmp_path))
+    with patch("cobre_bridge.case.Dger") as mock_dger:
+        sentinel = object()
+        mock_dger.read.return_value = sentinel
+        assert case.dger is sentinel
+
+    mock_dger.read.assert_called_once_with("DGER commentº\n")
+
+
 def test_optional_reader_is_none_when_file_absent(tmp_path: Path) -> None:
     case = NewaveCase(files=make_nw_files(tmp_path))  # modif defaults to None
     with patch("cobre_bridge.case.Modif") as mock_modif:

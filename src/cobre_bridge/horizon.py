@@ -28,6 +28,8 @@ from datetime import date
 
 from inewave.newave import Dger
 
+from cobre_bridge.errors import FieldParseError
+
 # The source model tags post-study (static final period) seasonal data with year 9999.
 POST_STUDY_YEAR = 9999
 
@@ -91,8 +93,30 @@ def study_horizon(dger: Dger) -> StudyHorizon:
     ``num_anos_estudo`` falls back to 1 and ``num_anos_pos_estudo`` to 0 when
     absent/zero (the pipeline rejects a genuinely empty study earlier).
     """
-    start_year = int(dger.ano_inicio_estudo)
-    start_month = int(dger.mes_inicio_estudo)
+    try:
+        start_year = int(dger.ano_inicio_estudo)
+    except (TypeError, ValueError) as exc:
+        raise FieldParseError(
+            "Required NEWAVE dger.dat field 'ANO INICIO DO ESTUDO' is missing "
+            "or invalid; check the inewave/NEWAVE format compatibility.",
+            path="dger.dat",
+            field="ANO INICIO DO ESTUDO",
+        ) from exc
+    try:
+        start_month = int(dger.mes_inicio_estudo)
+    except (TypeError, ValueError) as exc:
+        raise FieldParseError(
+            "Required NEWAVE dger.dat field 'MES INICIO DO ESTUDO' is missing "
+            "or invalid; check the inewave/NEWAVE format compatibility.",
+            path="dger.dat",
+            field="MES INICIO DO ESTUDO",
+        ) from exc
+    if not 1 <= start_month <= 12:
+        raise FieldParseError(
+            "NEWAVE dger.dat field 'MES INICIO DO ESTUDO' must be 1..12.",
+            path="dger.dat",
+            field="MES INICIO DO ESTUDO",
+        )
     num_anos = int(dger.num_anos_estudo or 1)
     num_anos_pos = int(dger.num_anos_pos_estudo or 0)
     study_months = (13 - start_month) + (num_anos - 1) * 12

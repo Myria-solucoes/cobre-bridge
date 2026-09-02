@@ -59,6 +59,28 @@ from inewave.newave import (
 
 from cobre_bridge.newave_files import NewaveFiles
 
+
+def _read_text_reader(reader: type, path: Path):
+    """Read a text source file without triggering cfinterface's retry bug.
+
+    ``cfinterface`` retries every declared encoding after a ``UnicodeDecodeError``
+    but keeps the sections accumulated by the failed attempt.  A Latin-1 byte in
+    an otherwise ordinary NEWAVE text file can therefore duplicate the beginning
+    of the parsed file; for ``DGER.DAT`` that makes scalar fields such as
+    ``ano_inicio_estudo`` resolve to ``None``.  Decode first so ``inewave`` sees
+    one complete text stream.  Keep the normal path-based read for UTF-8 files
+    (and for test doubles/non-existent paths).
+    """
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        return reader.read(str(path))
+    try:
+        raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return reader.read(raw.decode("latin-1"))
+    return reader.read(str(path))
+
 if TYPE_CHECKING:
     import pandas as pd
 
@@ -86,7 +108,7 @@ class NewaveCase:
 
     @cached_property
     def dger(self) -> Dger:
-        return Dger.read(str(self.files.dger))
+        return _read_text_reader(Dger, self.files.dger)
 
     @cached_property
     def confhd(self) -> Confhd:
