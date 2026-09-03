@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **NEWAVE FPHA numerical conditioning.** `convert newave` now materializes
+  computed FPHA planes during conversion, snaps only structurally-zero
+  `gamma_v` residuals (`|gamma_v| <= 1e-10`) to exact zero, and emits the
+  resulting planes through Cobre's supported precomputed contract. This keeps
+  convex-hull round-off near `1e-21` out of the LP matrix while preserving the
+  materially non-zero hydro-production coefficients. The conversion emits an
+  auditable `fpha-numerical-hardening` diagnostic with the affected row count
+  and the smallest retained coefficient.
+
 ## [0.15.0] - 2026-08-24
 
 Pairs the bridge with the **cobre 0.15.0** release: the `cobre-python` pin and

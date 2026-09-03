@@ -12,6 +12,13 @@ pipx install cobre-bridge       # alternative
 Requires Python >= 3.12. `cobre-python` is bundled as a core dependency, so
 `convert --validate` and `compare` work out of the box.
 
+For NEWAVE decks that request computed FPHA, conversion also performs a
+zero-iteration Cobre preprocessing pass and writes the conditioned planes as
+`system/fpha_hyperplanes.parquet`. Structurally-zero storage slopes are snapped
+to exact zero before the case selects the supported `precomputed` source. This
+is part of the default conversion path; it does not run SDDP training and is
+reported as the `fpha-numerical-hardening` diagnostic.
+
 ## Usage
 
 | Command                                                | What it does                                             |
@@ -36,10 +43,8 @@ constraints, and evaporation sections).
 
 See [docs/cli.md](docs/cli.md) for the full per-command reference.
 
-> **Cobre version.** This release targets **cobre 0.14.3**: converted cases use
-> cobre 0.14's input contract, and the emitted policy relies on 0.14.3's boundary
-> inflow-lag slot reservation, so `convert --validate` requires
-> `cobre-python >= 0.14.3` (an older one is skipped gracefully rather than failing).
+> **Cobre version.** This release targets **cobre 0.15.0** and requires
+> `cobre-python >= 0.15.0,<0.16`.
 
 ## Configuration
 

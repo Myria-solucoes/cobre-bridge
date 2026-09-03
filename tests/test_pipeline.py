@@ -219,6 +219,118 @@ class TestConvertNewaweCasePipeline:
 
         assert (dst / "system" / "hydro_production_models.json").exists()
 
+    def test_computed_fpha_is_hardened_and_rewritten_as_precomputed(
+        self, tmp_path: Path
+    ) -> None:
+        """The pipeline persists the conditioned artifact and its final contract."""
+        import contextlib
+
+        import pyarrow.parquet as pq
+
+        from cobre_bridge.numeric_hardening import FphaHardeningResult
+        from cobre_bridge.pipeline import convert_newave_case
+
+        src = _make_fake_newave_dir(tmp_path)
+        dst = tmp_path / "cobre_case"
+        computed = {
+            "production_models": [
+                {
+                    "hydro_id": 0,
+                    "fpha_config": {"source": "computed"},
+                }
+            ]
+        }
+        precomputed = {
+            "production_models": [
+                {
+                    "hydro_id": 0,
+                    "fpha_config": {"source": "precomputed"},
+                }
+            ]
+        }
+        planes = pa.table({"gamma_v": pa.array([0.0, 1e-8])})
+        hardening_result = FphaHardeningResult(
+            hyperplanes=planes,
+            production_models=precomputed,
+            snapped_gamma_v=7,
+            smallest_retained_gamma_v=1e-8,
+        )
+
+        fake_id_map = MagicMock()
+        with contextlib.ExitStack() as stack:
+            for converter_patch in _all_converter_patches(fake_id_map):
+                stack.enter_context(converter_patch)
+            stack.enter_context(
+                patch(
+                    "cobre_bridge.pipeline.hydro_conv.convert_production_models",
+                    return_value=computed,
+                )
+            )
+            harden = stack.enter_context(
+                patch(
+                    "cobre_bridge.pipeline.materialize_hardened_fpha",
+                    return_value=hardening_result,
+                )
+            )
+            report = convert_newave_case(src, dst)
+
+        harden.assert_called_once_with(dst, computed)
+        with (dst / "system" / "hydro_production_models.json").open(
+            encoding="utf-8"
+        ) as handle:
+            assert json.load(handle) == precomputed
+        assert pq.read_table(dst / "system" / "fpha_hyperplanes.parquet").equals(planes)
+        assert any(
+            diagnostic.code == "fpha-numerical-hardening"
+            for diagnostic in report.diagnostics
+        )
+        assert (
+            report.would_write_paths.count(
+                str(dst / "system" / "hydro_production_models.json")
+            )
+            == 1
+        )
+
+    def test_computed_fpha_dry_run_reports_artifact_without_preprocessing(
+        self, tmp_path: Path
+    ) -> None:
+        """Dry-run remains write-free and never invokes Cobre preprocessing."""
+        import contextlib
+
+        from cobre_bridge.pipeline import convert_newave_case
+
+        src = _make_fake_newave_dir(tmp_path)
+        dst = tmp_path / "cobre_case"
+        computed = {
+            "production_models": [
+                {
+                    "hydro_id": 0,
+                    "fpha_config": {"source": "computed"},
+                }
+            ]
+        }
+
+        fake_id_map = MagicMock()
+        with contextlib.ExitStack() as stack:
+            for converter_patch in _all_converter_patches(fake_id_map):
+                stack.enter_context(converter_patch)
+            stack.enter_context(
+                patch(
+                    "cobre_bridge.pipeline.hydro_conv.convert_production_models",
+                    return_value=computed,
+                )
+            )
+            harden = stack.enter_context(
+                patch("cobre_bridge.pipeline.materialize_hardened_fpha")
+            )
+            report = convert_newave_case(src, dst, dry_run=True)
+
+        harden.assert_not_called()
+        assert str(dst / "system" / "fpha_hyperplanes.parquet") in (
+            report.would_write_paths
+        )
+        assert not dst.exists()
+
     def test_missing_required_file_raises(self, tmp_path: Path) -> None:
         from cobre_bridge.pipeline import convert_newave_case
 
