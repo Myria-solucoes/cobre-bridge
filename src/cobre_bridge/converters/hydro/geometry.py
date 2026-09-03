@@ -24,9 +24,10 @@ _LOG = logging.getLogger(__name__)
 def _is_fpha_eligible(hreg: pd.Series) -> bool:
     """Whether a hydro plant can be fit by cobre's *computed* FPHA.
 
-    Requires a non-degenerate volume→cota polynomial (the forebay curve) and a
+    Requires a non-degenerate volume→cota polynomial (the forebay curve), a
     positive specific productivity ``rho_esp`` (needed to derive the
-    dimensionless turbine efficiency). Storage swing is **not** required:
+    dimensionless turbine efficiency), and positive installed generation
+    capacity. Storage swing is **not** required:
     run-of-river / zero-storage plants (``vmax == vmin``) emit a single VHA geometry row
     and cobre fits them through the single-volume FPHA path (γ_V = 0), matching the
     source model, which fits these plants with ``Npt_V = 1``.
@@ -38,7 +39,31 @@ def _is_fpha_eligible(hreg: pd.Series) -> bool:
     if rho_esp_raw is None:
         return False
     rho_esp = float(rho_esp_raw)
-    return not math.isnan(rho_esp) and rho_esp > 0.0
+    if math.isnan(rho_esp) or rho_esp <= 0.0:
+        return False
+
+    # ``hidr.dat`` can retain an active hydraulic registration after every
+    # generating unit has been removed.  NEWAVE's FPHA switch is global, but
+    # asking cobre to fit a production surface for such a plant produces no
+    # valid hyperplane (there is no positive Q/G operating point).  Treat it
+    # as constant-productivity instead; its zero generation bound keeps it
+    # operationally inert.  Test fixtures intentionally omit machine fields,
+    # so preserve the historical geometric-only predicate in that case.
+    n_sets_raw = hreg.get("numero_conjuntos_maquinas")
+    if n_sets_raw is None or pd.isna(n_sets_raw):
+        return True
+    try:
+        n_sets = int(n_sets_raw)
+        rated_generation = sum(
+            int(hreg[f"maquinas_conjunto_{index}"])
+            * float(hreg[f"potencia_nominal_conjunto_{index}"])
+            for index in range(1, n_sets + 1)
+        )
+    except (KeyError, TypeError, ValueError, OverflowError):
+        # The cadastro parser will surface malformed machine data elsewhere;
+        # do not turn a parser compatibility issue into a silent exclusion.
+        return True
+    return not math.isfinite(rated_generation) or rated_generation > 0.0
 
 
 def fpha_eligible_codes(case: NewaveCase) -> set[int]:
@@ -54,10 +79,53 @@ def fpha_eligible_codes(case: NewaveCase) -> set[int]:
         return set()
     cadastro = _apply_permanent_overrides(case.hidr.cadastro, case)
     eligible: set[int] = set()
+    inactive_rows: list[list[object]] = []
     for _, row in case.active_hydros.iterrows():
         code = int(row["codigo_usina"])
-        if code in cadastro.index and _is_fpha_eligible(cadastro.loc[code]):
+        if code not in cadastro.index:
+            continue
+        hreg = cadastro.loc[code]
+        if _is_fpha_eligible(hreg):
             eligible.add(code)
+            continue
+        # Make the important, safe fallback visible in the conversion
+        # manifest.  Limit this diagnostic to registrations whose installed
+        # generation is explicitly zero; other eligibility predicates are
+        # normal data characteristics (e.g. non-FPHA geometry).
+        n_sets = hreg.get("numero_conjuntos_maquinas")
+        if n_sets is None or pd.isna(n_sets):
+            continue
+        try:
+            rated_generation = sum(
+                int(hreg[f"maquinas_conjunto_{index}"])
+                * float(hreg[f"potencia_nominal_conjunto_{index}"])
+                for index in range(1, int(n_sets) + 1)
+            )
+        except (KeyError, TypeError, ValueError, OverflowError):
+            continue
+        if math.isfinite(rated_generation) and rated_generation <= 0.0:
+            inactive_rows.append([str(row["nome_usina"]).strip(), code])
+
+    if inactive_rows:
+        emit(
+            Diagnostic(
+                code="fpha-inactive-plant-fallback",
+                severity=Severity.WARNING,
+                category="Hydro production",
+                title=f"Inactive plants excluded from FPHA ({len(inactive_rows)})",
+                summary=(
+                    f"{len(inactive_rows)} plant(s) with zero installed generation "
+                    "were emitted as constant-productivity instead of computed FPHA; "
+                    "their zero generation bounds keep them operationally inert."
+                ),
+                table=DiagnosticTable(
+                    columns=["Plant", "Code"],
+                    rows=inactive_rows,
+                    justify=["left", "right"],
+                ),
+            ),
+            logger=_LOG,
+        )
     return eligible
 
 

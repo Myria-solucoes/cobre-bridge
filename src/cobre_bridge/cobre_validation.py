@@ -187,6 +187,12 @@ def _run_cobre_validation(
             "valid": valid,
             "warnings": len(rendered_warnings),
             "errors": len(errors),
+            # Counts alone are insufficient for callers that persist a
+            # conversion manifest.  Preserve the user-facing messages so an
+            # automatic Cobre modelling fallback is visible after conversion.
+            "warning_messages": [
+                _validation_message(warning) for warning in rendered_warnings
+            ],
         }
 
     return validation_failed

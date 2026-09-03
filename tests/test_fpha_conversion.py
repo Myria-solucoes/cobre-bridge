@@ -80,6 +80,20 @@ class TestIsFphaEligible:
     def test_zero_rho_esp_not_eligible(self) -> None:
         assert _is_fpha_eligible(_reservoir_row(rho_esp=0.0)) is False
 
+    def test_zero_installed_generation_not_eligible(self) -> None:
+        row = _reservoir_row()
+        row["numero_conjuntos_maquinas"] = 1
+        row["maquinas_conjunto_1"] = 0
+        row["potencia_nominal_conjunto_1"] = 50.0
+        assert _is_fpha_eligible(row) is False
+
+    def test_positive_installed_generation_remains_eligible(self) -> None:
+        row = _reservoir_row()
+        row["numero_conjuntos_maquinas"] = 1
+        row["maquinas_conjunto_1"] = 2
+        row["potencia_nominal_conjunto_1"] = 50.0
+        assert _is_fpha_eligible(row) is True
+
 
 class TestFphaEfficiency:
     def test_realistic_rho_esp_maps_to_fraction(self) -> None:
