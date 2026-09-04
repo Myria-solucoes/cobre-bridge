@@ -17,7 +17,11 @@ zero-iteration Cobre preprocessing pass and writes the conditioned planes as
 `system/fpha_hyperplanes.parquet`. Structurally-zero storage slopes are snapped
 to exact zero before the case selects the supported `precomputed` source. This
 is part of the default conversion path; it does not run SDDP training and is
-reported as the `fpha-numerical-hardening` diagnostic.
+reported as the `fpha-numerical-hardening` diagnostic. Plants with zero installed
+generation are kept inert with constant productivity and reported as
+`fpha-inactive-plant-fallback`. See the
+[FPHA numerical-hardening guide](docs/fpha-numerical-hardening.md) for the full
+contract and audit examples.
 
 ## Usage
 
@@ -41,7 +45,9 @@ comparison report (Overview/cost, System, Energy Balance, Network, Convergence,
 Performance, plant detail, Productivity, FPHA; `compare decomp` adds REE,
 constraints, and evaporation sections).
 
-See [docs/cli.md](docs/cli.md) for the full per-command reference.
+See [docs/cli.md](docs/cli.md) for the full per-command reference and the
+[FPHA numerical-hardening guide](docs/fpha-numerical-hardening.md) for computed
+hydro production behavior.
 
 > **Cobre version.** This release targets **cobre 0.15.0** and requires
 > `cobre-python >= 0.15.0,<0.16`.

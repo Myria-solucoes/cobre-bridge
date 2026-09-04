@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Cobre validation warning messages in the JSON verdict.** A conversion run
+  with `--validate --json` now preserves non-whitelisted Cobre warning text under
+  `summary.validation.warning_messages`, so automatic modeling fallbacks remain
+  visible to orchestrators that persist the JSON verdict instead of being
+  reduced to a count.
+
 ### Fixed
+
+- **Inactive NEWAVE hydros no longer enter computed FPHA fitting.** Plants with
+  explicitly zero installed generation are emitted with constant productivity;
+  their zero generation bounds keep them inert. Conversion emits the structured
+  `fpha-inactive-plant-fallback` warning with the affected plant names and codes.
 
 - **NEWAVE FPHA numerical conditioning.** `convert newave` now materializes
   computed FPHA planes during conversion, snaps only structurally-zero
@@ -16,7 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   convex-hull round-off near `1e-21` out of the LP matrix while preserving the
   materially non-zero hydro-production coefficients. The conversion emits an
   auditable `fpha-numerical-hardening` diagnostic with the affected row count
-  and the smallest retained coefficient.
+  and the smallest retained coefficient. See
+  [the FPHA numerical-hardening guide](docs/fpha-numerical-hardening.md) for the
+  conversion sequence and audit examples.
 
 ## [0.15.0] - 2026-08-24
 
