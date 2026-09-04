@@ -53,7 +53,7 @@ For NEWAVE cases, `conversion_manifest.json` distinguishes the analytical study
 horizon from the auxiliary post-study tail. See the
 [horizon semantics guide](docs/horizon-semantics.md) before presenting converted
 results. Text inputs may use UTF-8 or the source model's Latin-1 encoding; see
-the [NEWAVE input compatibility guide](docs/newave-input-compatibility.md).
+the [source text compatibility guide](docs/source-text-compatibility.md).
 
 > **Cobre version.** This release targets **cobre 0.15.0** and requires
 > `cobre-python >= 0.15.0,<0.16`.

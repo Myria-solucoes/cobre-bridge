@@ -41,6 +41,8 @@ from idecomp.decomp import Dadger, Dadgnl
 from idecomp.libs import Renovaveis
 from idecomp.libs.restricoes import Restricoes
 
+from cobre_bridge.source_reading import read_text_file
+
 if TYPE_CHECKING:
     from datetime import date
 
@@ -74,7 +76,7 @@ class DecompCase:
 
     @cached_property
     def dadger(self) -> Dadger:
-        return Dadger.read(str(self.files.dadger))
+        return read_text_file(Dadger, self.files.dadger)
 
     @cached_property
     def hidr(self) -> pd.DataFrame:
@@ -101,12 +103,12 @@ class DecompCase:
     @cached_property
     def dadgnl(self) -> Dadgnl | None:
         path = self.files.dadgnl
-        return Dadgnl.read(str(path)) if path is not None else None
+        return read_text_file(Dadgnl, path) if path is not None else None
 
     @cached_property
     def renovaveis(self) -> Renovaveis | None:
         path = self.files.renovaveis
-        return Renovaveis.read(str(path)) if path is not None else None
+        return read_text_file(Renovaveis, path) if path is not None else None
 
     @cached_property
     def polinjus(self) -> UsinasHidreletricas | None:
@@ -118,7 +120,7 @@ class DecompCase:
     @cached_property
     def libs_restricao_eletrica(self) -> Restricoes | None:
         path = self.files.libs_restricao_eletrica
-        return Restricoes.read(str(path)) if path is not None else None
+        return read_text_file(Restricoes, path) if path is not None else None
 
     # --- Derived state -----------------------------------------------------------
 

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from cobre_bridge.diagnostics import Diagnostic, DiagnosticTable, Severity, emit
 from cobre_bridge.plants import active_hydro_codes, fictitious_codes
+from cobre_bridge.source_reading import read_text_file
 
 if TYPE_CHECKING:
     from inewave.newave import Confhd, Conft, Exph, Hidr, Ree, Sistema
@@ -128,10 +129,10 @@ def build_id_map(nw_files: NewaveFiles) -> NewaveIdMap:
     """
     from inewave.newave import Confhd, Conft, Hidr, Ree, Sistema
 
-    confhd = Confhd.read(str(nw_files.confhd))
-    conft = Conft.read(str(nw_files.conft))
-    sistema = Sistema.read(str(nw_files.sistema))
-    ree_file = Ree.read(str(nw_files.ree))
+    confhd = read_text_file(Confhd, nw_files.confhd)
+    conft = read_text_file(Conft, nw_files.conft)
+    sistema = read_text_file(Sistema, nw_files.sistema)
+    ree_file = read_text_file(Ree, nw_files.ree)
     hidr = Hidr.read(str(nw_files.hidr))
     return build_id_map_from_readers(confhd, conft, sistema, ree_file, hidr)
 

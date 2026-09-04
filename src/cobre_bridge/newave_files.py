@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cobre_bridge.errors import SourceFileError
+from cobre_bridge.source_reading import read_text_file
 
 _LOG = logging.getLogger(__name__)
 
@@ -158,7 +159,7 @@ class NewaveFiles:
                 field="caso.dat",
             )
 
-        caso = Caso.read(str(caso_path))
+        caso = read_text_file(Caso, caso_path)
         arq_filename: str = caso.arquivos
         _LOG.debug("caso.dat -> Arquivos file: %s", arq_filename)
 
@@ -172,7 +173,7 @@ class NewaveFiles:
                 field=arq_filename,
             )
 
-        arq = Arquivos.read(str(arq_path))
+        arq = read_text_file(Arquivos, arq_path)
 
         # --- Step 3: resolve required files from Arquivos ----------------------
         def _req(attr: str) -> Path:

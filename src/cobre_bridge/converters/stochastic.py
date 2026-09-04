@@ -22,6 +22,7 @@ from cobre_bridge import cobre_schemas, plants
 from cobre_bridge.case import NewaveCase
 from cobre_bridge.horizon import POST_STUDY_YEAR, study_horizon
 from cobre_bridge.id_map import NewaveIdMap
+from cobre_bridge.source_reading import read_text_file
 
 logger = logging.getLogger(__name__)
 
@@ -616,7 +617,7 @@ def parse_cadical(path: Path) -> dict[tuple[int, int, int], float]:
     dict[tuple[int, int, int], float]
         Mapping of ``(subsystem_code, year, cal_month_1_based) -> total_mw``.
     """
-    cargas = Cadic.read(str(path)).cargas
+    cargas = read_text_file(Cadic, path).cargas
     result: dict[tuple[int, int, int], float] = {}
     if cargas is None:
         return result

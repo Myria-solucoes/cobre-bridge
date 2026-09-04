@@ -51,6 +51,7 @@ from idecomp.decomp import (
 )
 
 from cobre_bridge.paths import find_case_insensitive
+from cobre_bridge.source_reading import read_text_file
 
 _LOG = logging.getLogger(__name__)
 
@@ -98,7 +99,7 @@ def _read_dec_oper(
     path = _resolve_result_file(case_dir, filename)
     if path is None:
         raise FileNotFoundError(f"{filename} not found in {case_dir}")
-    return _finalize_table(path, reader_cls.read(str(path)).tabela)
+    return _finalize_table(path, read_text_file(reader_cls, path).tabela)
 
 
 def read_dec_oper_sist(case_dir: Path) -> pl.DataFrame:
@@ -239,7 +240,7 @@ def _read_relato_table(case_dir: Path, attr: str) -> pl.DataFrame:
     path = _resolve_relato(case_dir)
     if path is None:
         raise FileNotFoundError(f"no relato.rvN found in {case_dir}")
-    table = getattr(Relato.read(str(path)), attr)
+    table = getattr(read_text_file(Relato, path), attr)
     if table is None or table.empty:
         raise ValueError(f"{path} has no {attr} table")
     return pl.from_pandas(table)
@@ -262,7 +263,7 @@ def read_decomp_tim(case_dir: Path) -> pl.DataFrame:
     path = _resolve_result_file(case_dir, "decomp.tim")
     if path is None:
         raise FileNotFoundError(f"decomp.tim not found in {case_dir}")
-    return _finalize_table(path, Decomptim.read(str(path)).tempos_etapas)
+    return _finalize_table(path, read_text_file(Decomptim, path).tempos_etapas)
 
 
 def read_relato_balance(case_dir: Path) -> pl.DataFrame:
@@ -306,7 +307,7 @@ def read_relato2_costs(case_dir: Path) -> pl.DataFrame:
     path = _resolve_relato2(case_dir)
     if path is None:
         return pl.DataFrame()
-    table = Relato.read(str(path)).relatorio_operacao_custos
+    table = read_text_file(Relato, path).relatorio_operacao_custos
     if table is None or table.empty:
         return pl.DataFrame()
     return pl.from_pandas(table)
@@ -366,7 +367,7 @@ def _read_revisioned_table(
     path = _resolve_revisioned_file(case_dir, stem)
     if path is None:
         raise FileNotFoundError(f"{stem}.rvN not found in {case_dir}")
-    return _finalize_table(path, reader_cls.read(str(path)).tabela)
+    return _finalize_table(path, read_text_file(reader_cls, path).tabela)
 
 
 def read_dec_desvfpha(case_dir: Path) -> pl.DataFrame:
@@ -407,4 +408,6 @@ def read_dec_estatfpha(case_dir: Path) -> pl.DataFrame:
     path = _resolve_revisioned_file(case_dir, "dec_estatfpha")
     if path is None:
         raise FileNotFoundError(f"dec_estatfpha.rvN not found in {case_dir}")
-    return _finalize_table(path, DecEstatFpha.read(str(path)).estatisticas_desvios)
+    return _finalize_table(
+        path, read_text_file(DecEstatFpha, path).estatisticas_desvios
+    )

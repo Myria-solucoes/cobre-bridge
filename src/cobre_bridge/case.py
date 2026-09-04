@@ -58,30 +58,13 @@ from inewave.newave import (
 )
 
 from cobre_bridge.newave_files import NewaveFiles
+from cobre_bridge.source_reading import read_text_file
 
 if TYPE_CHECKING:
     import pandas as pd
 
     from cobre_bridge.horizon import StudyHorizon
     from cobre_bridge.id_map import NewaveIdMap
-
-
-def _read_dger(path: Path) -> Dger:
-    if not path.is_file():
-        return Dger.read(str(path))
-    raw = path.read_bytes()
-    encodings = [Dger.ENCODING] if isinstance(Dger.ENCODING, str) else Dger.ENCODING
-    decode_error: UnicodeDecodeError | None = None
-    for encoding in encodings:
-        try:
-            content = raw.decode(encoding)
-        except UnicodeDecodeError as exc:
-            decode_error = exc
-            continue
-        return Dger.read(content)
-    if decode_error is not None:
-        raise decode_error
-    raise ValueError("dger.dat has no configured text encoding")
 
 
 @dataclass
@@ -104,35 +87,35 @@ class NewaveCase:
 
     @cached_property
     def dger(self) -> Dger:
-        return _read_dger(self.files.dger)
+        return read_text_file(Dger, self.files.dger)
 
     @cached_property
     def confhd(self) -> Confhd:
-        return Confhd.read(str(self.files.confhd))
+        return read_text_file(Confhd, self.files.confhd)
 
     @cached_property
     def conft(self) -> Conft:
-        return Conft.read(str(self.files.conft))
+        return read_text_file(Conft, self.files.conft)
 
     @cached_property
     def sistema(self) -> Sistema:
-        return Sistema.read(str(self.files.sistema))
+        return read_text_file(Sistema, self.files.sistema)
 
     @cached_property
     def clast(self) -> Clast:
-        return Clast.read(str(self.files.clast))
+        return read_text_file(Clast, self.files.clast)
 
     @cached_property
     def term(self) -> Term:
-        return Term.read(str(self.files.term))
+        return read_text_file(Term, self.files.term)
 
     @cached_property
     def ree(self) -> Ree:
-        return Ree.read(str(self.files.ree))
+        return read_text_file(Ree, self.files.ree)
 
     @cached_property
     def patamar(self) -> Patamar:
-        return Patamar.read(str(self.files.patamar))
+        return read_text_file(Patamar, self.files.patamar)
 
     @cached_property
     def hidr(self) -> Hidr:
@@ -143,77 +126,77 @@ class NewaveCase:
     @cached_property
     def modif(self) -> Modif | None:
         path = self.files.modif
-        return Modif.read(str(path)) if path is not None else None
+        return read_text_file(Modif, path) if path is not None else None
 
     @cached_property
     def ghmin(self) -> Ghmin | None:
         path = self.files.ghmin
-        return Ghmin.read(str(path)) if path is not None else None
+        return read_text_file(Ghmin, path) if path is not None else None
 
     @cached_property
     def penalid(self) -> Penalid | None:
         path = self.files.penalid
-        return Penalid.read(str(path)) if path is not None else None
+        return read_text_file(Penalid, path) if path is not None else None
 
     @cached_property
     def vazpast(self) -> Vazpast | None:
         path = self.files.vazpast
-        return Vazpast.read(str(path)) if path is not None else None
+        return read_text_file(Vazpast, path) if path is not None else None
 
     @cached_property
     def dsvagua(self) -> Dsvagua | None:
         path = self.files.dsvagua
-        return Dsvagua.read(str(path)) if path is not None else None
+        return read_text_file(Dsvagua, path) if path is not None else None
 
     @cached_property
     def curva(self) -> Curva | None:
         path = self.files.curva
-        return Curva.read(str(path)) if path is not None else None
+        return read_text_file(Curva, path) if path is not None else None
 
     @cached_property
     def expt(self) -> Expt | None:
         path = self.files.expt
-        return Expt.read(str(path)) if path is not None else None
+        return read_text_file(Expt, path) if path is not None else None
 
     @cached_property
     def exph(self) -> Exph | None:
         path = self.files.exph
-        return Exph.read(str(path)) if path is not None else None
+        return read_text_file(Exph, path) if path is not None else None
 
     @cached_property
     def manutt(self) -> Manutt | None:
         path = self.files.manutt
-        return Manutt.read(str(path)) if path is not None else None
+        return read_text_file(Manutt, path) if path is not None else None
 
     @cached_property
     def c_adic(self) -> Cadic | None:
         path = self.files.c_adic
-        return Cadic.read(str(path)) if path is not None else None
+        return read_text_file(Cadic, path) if path is not None else None
 
     @cached_property
     def cvar(self) -> Cvar | None:
         path = self.files.cvar
-        return Cvar.read(str(path)) if path is not None else None
+        return read_text_file(Cvar, path) if path is not None else None
 
     @cached_property
     def re_dat(self) -> Re | None:
         path = self.files.re_dat
-        return Re.read(str(path)) if path is not None else None
+        return read_text_file(Re, path) if path is not None else None
 
     @cached_property
     def volref_saz(self) -> VolrefSaz | None:
         path = self.files.volref_saz
-        return VolrefSaz.read(str(path)) if path is not None else None
+        return read_text_file(VolrefSaz, path) if path is not None else None
 
     @cached_property
     def shist(self) -> Shist | None:
         path = self.files.shist
-        return Shist.read(str(path)) if path is not None else None
+        return read_text_file(Shist, path) if path is not None else None
 
     @cached_property
     def adterm(self) -> Adterm | None:
         path = self.files.adterm
-        return Adterm.read(str(path)) if path is not None else None
+        return read_text_file(Adterm, path) if path is not None else None
 
     @cached_property
     def polinjus(self) -> UsinasHidreletricas | None:
@@ -226,7 +209,7 @@ class NewaveCase:
         path = self.files.polinjus
         if path is None:
             return None
-        return cast(UsinasHidreletricas, UsinasHidreletricas.read(str(path)))
+        return cast(UsinasHidreletricas, read_text_file(UsinasHidreletricas, path))
 
     # --- Derived state ---------------------------------------------------------
 

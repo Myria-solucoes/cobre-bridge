@@ -30,6 +30,7 @@ import pyarrow as pa
 from cobre_bridge.converters.tailrace import build_tailrace_table
 from cobre_bridge.decomp.cadastro import effective_storage_range
 from cobre_bridge.productivity import evaluate_cota, fpha_efficiency
+from cobre_bridge.source_reading import read_text_file
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -72,7 +73,7 @@ def read_polinjus(path: Path):  # noqa: ANN201 (idecomp.libs type is optional)
         return None
     from idecomp.libs import UsinasHidreletricas
 
-    return UsinasHidreletricas.read(str(path))
+    return read_text_file(UsinasHidreletricas, path)
 
 
 def convert_tailrace_curves(case: DecompCase, id_map: DecompIdMap) -> pa.Table | None:

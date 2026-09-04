@@ -54,6 +54,7 @@ from cobre_bridge.decomp.fcf.writer import (
 from cobre_bridge.decomp.inflow_mlt import build_incremental_mlt, coupling_lag_means
 from cobre_bridge.decomp.pipeline import DecompFiles
 from cobre_bridge.decomp.scenarios import convert_recent_observation_windows
+from cobre_bridge.source_reading import read_text_file
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -385,7 +386,7 @@ def _build_gnl_ring_plan(case_dir: Path, deck_files: DecompFiles) -> GnlRingPlan
     """
     if deck_files.dadgnl is None:
         return None
-    model = read_gnl_model(Dadgnl.read(str(deck_files.dadgnl)))
+    model = read_gnl_model(read_text_file(Dadgnl, deck_files.dadgnl))
     if model is None:
         return None
     thermals_path = case_dir / "system" / "thermals.json"

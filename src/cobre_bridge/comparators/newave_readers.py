@@ -32,6 +32,7 @@ import pandas as pd
 import polars as pl
 
 from cobre_bridge.paths import find_case_insensitive
+from cobre_bridge.source_reading import read_text_file
 
 _LOG = logging.getLogger(__name__)
 
@@ -414,7 +415,7 @@ def read_pmo_productivity_detail(newave_dir: Path) -> pl.DataFrame:
     try:
         from inewave.newave import Pmo
 
-        pmo = Pmo.read(str(pmo_path))
+        pmo = read_text_file(Pmo, pmo_path)
         prod_df = pmo.produtibilidades_equivalentes
     except Exception:  # noqa: BLE001
         _LOG.warning("Failed to read productivities from pmo.dat")
@@ -512,7 +513,7 @@ def read_nwlistop_intercambio(case_dir: Path) -> pl.DataFrame:
     rows: list[dict] = []
     for from_code, to_code, path in matches:
         try:
-            obj = Intercambio.read(str(path))
+            obj = read_text_file(Intercambio, path)
         except Exception:  # noqa: BLE001
             _LOG.warning("Failed to parse %s", path)
             continue
@@ -722,7 +723,7 @@ def read_newave_net_load(newave_dir: Path) -> pl.DataFrame:
     try:
         from inewave.newave import Sistema
 
-        sistema = Sistema.read(str(sistema_path))
+        sistema = read_text_file(Sistema, sistema_path)
         load_df = sistema.mercado_energia
         ncs_df = sistema.geracao_usinas_nao_simuladas
     except Exception:  # noqa: BLE001
@@ -819,7 +820,7 @@ def read_pmo_cost_breakdown(newave_dir: Path) -> dict[str, float]:
     try:
         from inewave.newave import Pmo
 
-        pmo = Pmo.read(str(pmo_path))
+        pmo = read_text_file(Pmo, pmo_path)
         df = pmo.custo_operacao_series_simuladas
     except Exception:  # noqa: BLE001
         _LOG.warning("Failed to read cost breakdown from pmo.dat")
@@ -925,7 +926,7 @@ def read_newave_tim_stages(newave_dir: Path) -> dict[str, float]:
     try:
         from inewave.newave import Newavetim
 
-        tim = Newavetim.read(str(tim_path))
+        tim = read_text_file(Newavetim, tim_path)
     except Exception:  # noqa: BLE001
         _LOG.warning("Failed to parse newave.tim via inewave at %s", tim_path)
         return {}
@@ -1011,7 +1012,7 @@ def read_fpha_planes(newave_dir: Path) -> pl.DataFrame | None:
         return None
     from inewave.newave import FphaCortes
 
-    table = FphaCortes.read(str(path)).tabela
+    table = read_text_file(FphaCortes, path).tabela
     if table is None or table.empty:
         return None
     missing = set(_FPHA_PLANE_COLUMNS) - set(table.columns)
@@ -1079,7 +1080,7 @@ def read_fpha_grid(newave_dir: Path) -> pl.DataFrame | None:
         return None
     from inewave.newave import FphaEco
 
-    table = FphaEco.read(str(path)).tabela
+    table = read_text_file(FphaEco, path).tabela
     if table is None or table.empty:
         return None
     missing = set(_FPHA_GRID_COLUMNS) - set(table.columns)

@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
+from inewave.newave import Dger
 
 from cobre_bridge.case import NewaveCase
 from tests.conftest import make_case, make_nw_files
@@ -31,17 +32,14 @@ def _confhd(rows: list[dict]) -> MagicMock:
 
 def test_required_reader_parses_once_and_caches(tmp_path: Path) -> None:
     case = NewaveCase(files=make_nw_files(tmp_path))
-    dger_path = tmp_path / "dger.dat"
-    dger_path.write_text("case\n", encoding="utf-8")
-    with patch("cobre_bridge.case.Dger") as mock_dger:
+    with patch("cobre_bridge.case.read_text_file") as mock_read:
         sentinel = object()
-        mock_dger.ENCODING = "utf-8"
-        mock_dger.read.return_value = sentinel
+        mock_read.return_value = sentinel
         first = case.dger
         second = case.dger
     assert first is sentinel
     assert second is sentinel
-    mock_dger.read.assert_called_once_with("case\n")
+    mock_read.assert_called_once_with(Dger, tmp_path / "dger.dat")
 
 
 def test_dger_latin1_is_decoded_before_parser_fallback(tmp_path: Path) -> None:
