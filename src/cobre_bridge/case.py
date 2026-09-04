@@ -66,6 +66,24 @@ if TYPE_CHECKING:
     from cobre_bridge.id_map import NewaveIdMap
 
 
+def _read_dger(path: Path) -> Dger:
+    if not path.is_file():
+        return Dger.read(str(path))
+    raw = path.read_bytes()
+    encodings = [Dger.ENCODING] if isinstance(Dger.ENCODING, str) else Dger.ENCODING
+    decode_error: UnicodeDecodeError | None = None
+    for encoding in encodings:
+        try:
+            content = raw.decode(encoding)
+        except UnicodeDecodeError as exc:
+            decode_error = exc
+            continue
+        return Dger.read(content)
+    if decode_error is not None:
+        raise decode_error
+    raise ValueError("dger.dat has no configured text encoding")
+
+
 @dataclass
 class NewaveCase:
     """A source-model case with each input file parsed once and cached.
@@ -86,7 +104,7 @@ class NewaveCase:
 
     @cached_property
     def dger(self) -> Dger:
-        return Dger.read(str(self.files.dger))
+        return _read_dger(self.files.dger)
 
     @cached_property
     def confhd(self) -> Confhd:

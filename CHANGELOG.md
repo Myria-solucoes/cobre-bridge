@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Latin-1 `dger.dat` horizon parsing.** NEWAVE conversion now decodes the
+  general-data file with its declared encoding fallback before parsing it. A
+  Latin-1 character later in the file can no longer invalidate already-read
+  study-horizon fields and end conversion with an internal `int(None)` error.
+
 - **Inactive NEWAVE hydros no longer enter computed FPHA fitting.** Plants with
   explicitly zero installed generation are emitted with constant productivity;
   their zero generation bounds keep them inert. Conversion emits the structured

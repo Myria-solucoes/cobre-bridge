@@ -31,14 +31,43 @@ def _confhd(rows: list[dict]) -> MagicMock:
 
 def test_required_reader_parses_once_and_caches(tmp_path: Path) -> None:
     case = NewaveCase(files=make_nw_files(tmp_path))
+    dger_path = tmp_path / "dger.dat"
+    dger_path.write_text("case\n", encoding="utf-8")
     with patch("cobre_bridge.case.Dger") as mock_dger:
         sentinel = object()
+        mock_dger.ENCODING = "utf-8"
         mock_dger.read.return_value = sentinel
         first = case.dger
         second = case.dger
     assert first is sentinel
     assert second is sentinel
-    mock_dger.read.assert_called_once_with(str(tmp_path / "dger.dat"))
+    mock_dger.read.assert_called_once_with("case\n")
+
+
+def test_dger_latin1_is_decoded_before_parser_fallback(tmp_path: Path) -> None:
+    lines = [
+        "PLD - SETEMBRO - 2026",
+        "TIPO DE EXECUCAO        1",
+        "DURACAO DO PERIODO      1",
+        "No. DE ANOS DO EST      5",
+        "MES INICIO PRE-EST      1",
+        "MES INICIO DO ESTUDO    9",
+        "ANO INICIO DO ESTUDO 2026",
+        "No. DE ANOS PRE         0",
+        "No. DE ANOS POS         5",
+        "No. DE ANOS POS FINAL   0",
+        *(["CAMPO                  0"] * 30),
+        "TENDENCIA HIDROLOGICA   2   (1º FCF / 2º SF)",
+    ]
+    dger_path = tmp_path / "dger.dat"
+    dger_path.write_bytes(("\n".join(lines) + "\n").encode("latin-1"))
+
+    case = NewaveCase(files=make_nw_files(tmp_path))
+
+    assert case.dger.num_anos_estudo == 5
+    assert case.dger.mes_inicio_estudo == 9
+    assert case.dger.ano_inicio_estudo == 2026
+    assert case.dger.num_anos_pos_estudo == 5
 
 
 def test_optional_reader_is_none_when_file_absent(tmp_path: Path) -> None:
