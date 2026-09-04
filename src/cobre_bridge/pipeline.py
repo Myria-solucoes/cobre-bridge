@@ -59,6 +59,8 @@ class ConversionReport:
     bus_count: int = 0
     line_count: int = 0
     stage_count: int = 0
+    study_stage_count: int = 0
+    post_study_stage_count: int = 0
     #: Structured findings (rich tables, severities, remediation) for the CLI to
     #: render. Populated by :func:`convert_newave_case`.
     diagnostics: list[dx.Diagnostic] = field(default_factory=list)
@@ -627,6 +629,8 @@ def _convert_newave_case_impl(
     report.bus_count = len(buses_dict.get("buses", []))
     report.line_count = len(lines_dict.get("lines", []))
     report.stage_count = len(stages_dict.get("stages", []))
+    report.study_stage_count = case.horizon.study_months
+    report.post_study_stage_count = case.horizon.pos_months
     # The final production-model JSON is intentionally rewritten after FPHA
     # materialisation.  Report each path once while preserving first-write order.
     report.would_write_paths = list(dict.fromkeys(str(p) for p in writer.would_write))

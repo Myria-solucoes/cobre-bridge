@@ -1919,6 +1919,8 @@ def _emit_and_write(
         bus_count=len(buses_doc["buses"]),
         line_count=len(lines_doc["lines"]),
         stage_count=len(calendar),
+        study_stage_count=len(calendar),
+        post_study_stage_count=0,
         would_write_paths=[str(p) for p in writer.would_write],
     )
 

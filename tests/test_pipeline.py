@@ -156,6 +156,8 @@ class TestConvertNewaweCasePipeline:
         assert report.bus_count == 3
         assert report.line_count == 1
         assert report.stage_count == 12
+        assert report.study_stage_count == 12
+        assert report.post_study_stage_count == 0
 
     def test_production_models_written_when_converter_returns_data(
         self, tmp_path: Path

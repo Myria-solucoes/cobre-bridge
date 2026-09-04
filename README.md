@@ -49,6 +49,11 @@ See [docs/cli.md](docs/cli.md) for the full per-command reference and the
 [FPHA numerical-hardening guide](docs/fpha-numerical-hardening.md) for computed
 hydro production behavior.
 
+For NEWAVE cases, `conversion_manifest.json` distinguishes the analytical study
+horizon from the auxiliary post-study tail. See the
+[horizon semantics guide](docs/horizon-semantics.md) before presenting converted
+results.
+
 > **Cobre version.** This release targets **cobre 0.15.0** and requires
 > `cobre-python >= 0.15.0,<0.16`.
 

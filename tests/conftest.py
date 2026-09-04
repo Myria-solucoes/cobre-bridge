@@ -1442,6 +1442,8 @@ def _all_converter_patches(fake_id_map: MagicMock) -> list:  # type: ignore[type
     """
     fake_case = MagicMock()
     fake_case.id_map = fake_id_map
+    fake_case.horizon.study_months = 12
+    fake_case.horizon.pos_months = 0
     return [
         patch(
             "cobre_bridge.pipeline.NewaveCase.from_directory",

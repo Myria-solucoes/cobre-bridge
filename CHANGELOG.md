@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Explicit NEWAVE study and post-study horizon metadata.**
+  `conversion_manifest.json` now records `study_stage_count`,
+  `post_study_stage_count`, `total_stage_count`, and
+  `first_post_study_stage_id` under `horizon`. Consumers can keep the full
+  computational horizon while presenting only the analytical study period by
+  default. Older manifests remain readable and default to an empty horizon
+  object.
+
 - **Cobre validation warning messages in the JSON verdict.** A conversion run
   with `--validate --json` now preserves non-whitelisted Cobre warning text under
   `summary.validation.warning_messages`, so automatic modeling fallbacks remain

@@ -41,8 +41,8 @@ class ConversionManifest(ProvenanceManifest):
 
     Carries the originating command, the source-model and output paths, the
     bridge version and git SHA, a UTC timestamp, the converted entity counts,
-    the hashed input files, a per-severity diagnostic summary, and the full
-    diagnostic list.
+    the hashed input files, a per-severity diagnostic summary, the full
+    diagnostic list, and the study/post-study horizon boundary.
     """
 
     command: str
@@ -61,6 +61,7 @@ class ConversionManifest(ProvenanceManifest):
     # field round-trips through ``from_json`` unchanged. Appended last so existing
     # positional construction stays unchanged.
     min_cobre_version: str | None = None
+    horizon: dict[str, int | None] = field(default_factory=dict)
 
     _NOT_FOUND_LABEL: ClassVar[str] = "Conversion manifest"
 
@@ -76,6 +77,7 @@ class ConversionManifest(ProvenanceManifest):
         diagnostics_summary: dict[str, int],
         diagnostics: list[dict[str, object]],
         min_cobre_version: str | None = None,
+        horizon: dict[str, int | None] | None = None,
     ) -> ConversionManifest:
         """Build a manifest, capturing bridge version, git SHA, and UTC time.
 
@@ -85,8 +87,9 @@ class ConversionManifest(ProvenanceManifest):
         :func:`cobre_bridge._git.git_sha`. The
         ``source_dir`` / ``output_dir`` paths are stringified via ``str(...)``.
         ``min_cobre_version`` records the minimum cobre version the output
-        requires (``None`` only when omitted, e.g. by an older caller). The
-        remaining data fields are caller-supplied.
+        requires (``None`` only when omitted, e.g. by an older caller), and
+        ``horizon`` distinguishes analytical study stages from the computational
+        post-study tail. The remaining data fields are caller-supplied.
         """
         return cls(
             command=command,
@@ -100,6 +103,7 @@ class ConversionManifest(ProvenanceManifest):
             diagnostics_summary=diagnostics_summary,
             diagnostics=diagnostics,
             min_cobre_version=min_cobre_version,
+            horizon=dict(horizon or {}),
         )
 
 
@@ -146,6 +150,19 @@ def _write_conversion_manifest(
         "lines": report.line_count,
         "stages": report.stage_count,
     }
+    study_stage_count = report.study_stage_count
+    post_study_stage_count = report.post_study_stage_count
+    if study_stage_count + post_study_stage_count != report.stage_count:
+        study_stage_count = report.stage_count
+        post_study_stage_count = 0
+    horizon = {
+        "study_stage_count": study_stage_count,
+        "post_study_stage_count": post_study_stage_count,
+        "total_stage_count": report.stage_count,
+        "first_post_study_stage_id": (
+            study_stage_count if post_study_stage_count > 0 else None
+        ),
+    }
     # Record the minimum cobre version the output requires. Every converted case
     # now emits a ``training.parallelism.backward_scheduler`` block (cobre 0.12.0+),
     # ``operational_start_date`` on all system entities (cobre 0.10.0+), and a
@@ -160,6 +177,7 @@ def _write_conversion_manifest(
         diagnostics_summary=summarize_diagnostics(report.diagnostics),
         diagnostics=[d.to_dict() for d in report.diagnostics],
         min_cobre_version=MIN_COBRE_VERSION,
+        horizon=horizon,
     )
 
     path = dst / "conversion_manifest.json"

@@ -466,6 +466,12 @@ class TestCliInProcess:
             "lines": 3,
             "stages": 60,
         }
+        assert manifest.horizon == {
+            "study_stage_count": 60,
+            "post_study_stage_count": 0,
+            "total_stage_count": 60,
+            "first_post_study_stage_id": None,
+        }
         assert manifest.command == "convert newave"
         # The fake source dir's stub files were discovered and hashed.
         assert manifest.input_files
@@ -619,6 +625,7 @@ class TestCliInProcess:
             "valid": False,
             "warnings": 1,
             "errors": 2,
+            "warning_messages": ["w"],
         }
         # No validation text leaked onto stdout; the human messages stay on stderr.
         assert "Validation" not in stdout

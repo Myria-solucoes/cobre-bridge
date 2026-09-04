@@ -315,6 +315,35 @@ def test_min_cobre_version_round_trip(tmp_path: Path) -> None:
     assert restored.min_cobre_version == "0.9.1"
 
 
+def test_horizon_round_trip_marks_study_and_post_study(tmp_path: Path) -> None:
+    manifest = ConversionManifest.create(
+        "convert newave",
+        tmp_path,
+        tmp_path,
+        entity_counts={"stages": 117},
+        input_files=[],
+        diagnostics_summary={},
+        diagnostics=[],
+        horizon={
+            "study_stage_count": 57,
+            "post_study_stage_count": 60,
+            "total_stage_count": 117,
+            "first_post_study_stage_id": 57,
+        },
+    )
+
+    path = tmp_path / "conversion_manifest.json"
+    manifest.to_json(path)
+    restored = ConversionManifest.from_json(path)
+
+    assert restored.horizon == {
+        "study_stage_count": 57,
+        "post_study_stage_count": 60,
+        "total_stage_count": 117,
+        "first_post_study_stage_id": 57,
+    }
+
+
 def test_min_cobre_version_defaults_none() -> None:
     """``create`` without the kwarg leaves ``min_cobre_version`` ``None`` (EX-only)."""
     manifest = ConversionManifest.create(
@@ -344,3 +373,13 @@ def test_from_json_missing_min_cobre_version(tmp_path: Path) -> None:
     manifest = ConversionManifest.from_json(path)
 
     assert manifest.min_cobre_version is None
+
+
+def test_from_json_missing_horizon_defaults_empty(tmp_path: Path) -> None:
+    data = _base_manifest_data()
+    path = tmp_path / "conversion_manifest.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    manifest = ConversionManifest.from_json(path)
+
+    assert manifest.horizon == {}
