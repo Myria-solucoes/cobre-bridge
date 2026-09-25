@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Allow Cobre 0.16 for NEWAVE conversion and validation in separate runtime
+  environments. See [NEWAVE compatibility](docs/cobre-016-newave.md); the DECOMP
+  boundary conversion remains paired with Cobre 0.15.
+
 ### Added
 
 - **Explicit NEWAVE study and post-study horizon metadata.**
