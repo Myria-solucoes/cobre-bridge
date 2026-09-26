@@ -307,7 +307,9 @@ def _index_gnl_ring(
             continue
         thermal_id = _slot_int(slot, "entity_id")
         subindex = _slot_int(slot, "subindex")
-        delivery_date = _slot_int(slot, "delivery_date")
+        delivery_date = _slot_int(
+            slot, "interval_start" if "interval_start" in slot else "delivery_date"
+        )
         by_thermal.setdefault(thermal_id, []).append(
             (subindex, delivery_date, position)
         )

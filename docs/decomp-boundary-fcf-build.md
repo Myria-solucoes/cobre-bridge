@@ -4,13 +4,17 @@
 (`decomp/fcf/`) reads terminal cost-to-go cuts from a source-model deck,
 bootstraps the terminal manifest with a real 1-iteration **in-process** cobre
 pass (`cobre.run.run`), and writes the cuts into a Cobre policy checkpoint via
-`cobre.write_policy_checkpoint`, using the **CBVF** checkpoint format (keyed on a
-`delivery_date` entity-manifest field). Every cobre call is in-process against
+`cobre.write_policy_checkpoint`, using the native policy checkpoint format.
+Cobre 0.16 requires the terminal `priced_state_date`, the season manifest, and
+the `reference_date`/`interval_start`/`interval_end` entity metadata. These are
+preserved from the bootstrap, not reconstructed from stage numbers. Legacy
+0.15 checkpoints retain their `delivery_date` and `source_stage` contract.
+Every cobre call is in-process against
 the `cobre-python` wheel — the import needs no external `cobre` binary.
 
 ## Requirements
 
-- **`cobre-python`** — and nothing else. The CBVF `delivery_date` checkpoint
+- **`cobre-python`** — and nothing else. The native policy checkpoint
   format ships in the released cobre wheels on PyPI, and `cobre-python` is a
   **required runtime dependency** of `cobre-bridge` (in `pyproject.toml`'s
   core `dependencies`). A normal `pip install cobre-bridge` therefore installs
@@ -33,7 +37,7 @@ check is the runtime **capability probe** in
 `src/cobre_bridge/decomp/fcf/capability.py` (`ensure_boundary_fcf_capability()`):
 it performs a real CBVF write→load round trip against the installed wheel and
 raises a `RuntimeError` with a self-contained remediation message if the wheel
-cannot write or reload the `delivery_date` checkpoint format. A round trip (rather than a version string)
+cannot write or reload the dated checkpoint format. A round trip (rather than a version string)
 also catches a broken, partial, or ABI-mismatched wheel. Any bridge command that
 gates on it — e.g. `convert decomp` on a deck that declares cut files — exercises
 the probe. If it fails, reinstall or upgrade `cobre-python` (`pip install
@@ -41,15 +45,20 @@ the probe. If it fails, reinstall or upgrade `cobre-python` (`pip install
 
 ## Running an imported case
 
-Once a case has been converted with the boundary FCF imported, `cobre run` must
-be invoked with an explicit `--output` pointed at the case directory itself, not
-a separate output directory:
+With Cobre 0.16, the boundary is resolved relative to the case directory. Keep
+execution outputs separate from inputs:
+
+```bash
+cobre run <case_dir> --output <output_dir>
+```
+
+Only the legacy 0.15 boundary loader requires output at the case directory:
 
 ```bash
 cobre run <case_dir> --output <case_dir>
 ```
 
-This is a tracked cobre-gap (C8, D7): `policy.boundary.path` in the emitted
+This legacy restriction is a tracked cobre-gap (C8, D7): `policy.boundary.path` in the emitted
 checkpoint metadata resolves relative to the run's `--output` directory, not the
 case directory it was authored into, so a plain `cobre run <case_dir>` (default
 output elsewhere) fails to locate the boundary checkpoint. The bridge's
@@ -57,3 +66,16 @@ output elsewhere) fails to locate the boundary checkpoint. The bridge's
 successful import; it is worked around at the call site, not solved by the
 bridge. Its removal condition is tracked in the cobre repository's
 conversion-found-improvements registry.
+
+## Source Inputs
+
+The DECOMP revision needs its operative `vazoes.rvN`, not the historical
+NEWAVE/GEVAZP `vazoes.dat`. An orchestrator must materialize the selected,
+certified inflow input before conversion. The boundary importer selects the
+coupling month from the final operative stage: a numbered partition must match
+that month, and a consolidated archive is read at its corresponding chain head.
+No partition is relabelled to make an incompatible period appear valid.
+
+Plants with zero rated flow or generation capacity throughout the horizon use
+the constant-productivity path while retaining their zero capacity bounds.
+This avoids fitting a degenerate FPHA surface without enabling generation.

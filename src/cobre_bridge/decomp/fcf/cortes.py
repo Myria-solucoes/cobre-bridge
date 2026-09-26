@@ -494,12 +494,14 @@ def read_cortes(
     resolved_boundary_stage: int
     if trailer is not None:
         _study_month, _study_year, cut_stage_month, cut_stage_year = trailer
-        if boundary_stage is None:
-            resolved_boundary_stage = (
-                cut_stage_year - cortesh.ano_inicio_estudo
-            ) * 12 + cut_stage_month
-        else:
-            resolved_boundary_stage = boundary_stage
+        resolved_boundary_stage = (
+            cut_stage_year - cortesh.ano_inicio_estudo
+        ) * 12 + cut_stage_month
+        if boundary_stage is not None and boundary_stage != resolved_boundary_stage:
+            raise ValueError(
+                f"cut partition stage {resolved_boundary_stage} differs from "
+                f"DECOMP coupling stage {boundary_stage}"
+            )
         header = _build_header(cortesh, boundary_stage=resolved_boundary_stage)
         cortes = Cortes.from_cortesh(str(cortes_path), cortesh, por_estagio=True)
     else:

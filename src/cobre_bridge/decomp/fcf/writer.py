@@ -120,6 +120,11 @@ def build_stage_cuts_payload(
         "cost_scale_factor": cost_scale_factor,
         "node_id": node_id,
         "graph_stage_id": graph_stage_id,
+        **(
+            {"priced_state_date": manifest.priced_state_date}
+            if manifest.priced_state_date is not None
+            else {}
+        ),
     }
 
 

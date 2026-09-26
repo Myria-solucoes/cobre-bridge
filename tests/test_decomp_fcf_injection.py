@@ -21,6 +21,7 @@ import inspect
 import json
 import logging
 import sys
+from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
@@ -76,7 +77,7 @@ def _mock_deck_and_cut_seams(
     monkeypatch.setitem(sys.modules, "cobre", SimpleNamespace(__version__="0.13.0"))
     monkeypatch.setattr(
         "cobre_bridge.decomp.fcf.importer.Cortesh",
-        SimpleNamespace(read=lambda _path: object()),
+        SimpleNamespace(read=lambda _path: SimpleNamespace(ano_inicio_estudo=2026)),
     )
     monkeypatch.setattr(
         "cobre_bridge.decomp.fcf.importer.read_cortes",
@@ -108,7 +109,7 @@ def _mock_deck_and_cut_seams(
         dadger=object(),
         id_map=make_id_map(()),
         hidr=object(),
-        calendar=[],
+        calendar=[SimpleNamespace(start_date=date(2026, 4, 1))],
     )
 
 

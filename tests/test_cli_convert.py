@@ -2067,8 +2067,9 @@ class TestCliInProcess:
         mock_import.assert_not_called()
         assert not (dst / "boundary").exists()
 
+    @pytest.mark.parametrize("legacy_boundary", [False, True])
     def test_convert_decomp_boundary_fcf_happy_path(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, legacy_boundary: bool
     ) -> None:
         """With cut files present (the default), the CLI builds exactly one
         ``DecompCase`` for the FCF step and passes it positionally to the
@@ -2085,10 +2086,17 @@ class TestCliInProcess:
             hydro_count=1, thermal_count=1, bus_count=1, line_count=0, stage_count=4
         )
 
+        def convert(*args, fcf_inputs_out, **kwargs):
+            boundary = {"path": "boundary"}
+            if legacy_boundary:
+                boundary["source_stage"] = 3
+            fcf_inputs_out.config = {"policy": {"boundary": boundary}}
+            return fake_report
+
         with (
             patch(
                 "cobre_bridge.decomp.pipeline.convert_decomp_case",
-                return_value=fake_report,
+                side_effect=convert,
             ),
             patch(
                 "cobre_bridge.decomp.fcf.capability.ensure_boundary_fcf_capability"
@@ -2117,12 +2125,12 @@ class TestCliInProcess:
         assert isinstance(mock_import.call_args.args[1], DecompCase)
         # C8 recipe surfaced on stderr regardless of --json.
         assert f"cobre run {dst}" in stderr
-        assert f"--output={dst}" in stderr
+        assert (f"--output={dst}" in stderr) is legacy_boundary
         doc = json.loads(stdout)
         assert doc["summary"]["boundary_fcf"] == {
             "imported": True,
             "path": "boundary",
-            "run_constraint": f"--output={dst}",
+            "run_constraint": f"--output={dst}" if legacy_boundary else "",
         }
 
     def test_convert_decomp_missing_cortes_skips_fcf(
@@ -2396,9 +2404,9 @@ class TestCliInProcess:
 
         assert code == 0
         assert "GNL anticipated ring carries a per-patamar sum" in stderr
-        # The C8 run-recipe note still surfaces (happy-path behaviour intact).
+        # Modern case-relative boundaries do not constrain the output path.
         assert f"cobre run {dst}" in stderr
-        assert f"--output={dst}" in stderr
+        assert f"--output={dst}" not in stderr
 
     def test_convert_decomp_boundary_fcf_importer_diagnostics_reach_sidecar(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

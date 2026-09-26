@@ -29,6 +29,7 @@ import pyarrow as pa
 
 from cobre_bridge.converters.tailrace import build_tailrace_table
 from cobre_bridge.decomp.cadastro import effective_storage_range
+from cobre_bridge.decomp.hydro import _rated_envelope
 from cobre_bridge.productivity import evaluate_cota, fpha_efficiency
 from cobre_bridge.source_reading import read_text_file
 
@@ -103,7 +104,12 @@ def is_fpha_eligible(effective: EffectiveCadastro, code: int) -> bool:
     coeffs = effective.cota_polynomial(code, 0)
     if all(c == 0.0 for c in coeffs):
         return False
-    return effective.value(code, "produtibilidade_especifica", 0) > 0.0
+    if effective.value(code, "produtibilidade_especifica", 0) <= 0.0:
+        return False
+    # An unavailable plant has no production surface to fit. Preserve its
+    # zero generation/flow bounds using the constant-productivity path.
+    flow, power = _rated_envelope(effective.base.loc[code], code, effective)
+    return flow > 0.0 and power > 0.0
 
 
 def fpha_eligible_codes(effective: EffectiveCadastro, id_map: DecompIdMap) -> set[int]:

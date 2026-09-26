@@ -7,9 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Support DECOMP boundary import on Cobre 0.16: preserve priced-state dates and
+  season descriptors, map dated anticipated-thermal intervals, use the current
+  simulation control, and resolve boundary files relative to the case.
+- Read consolidated cuts at the DECOMP coupling period and reject mismatched
+  numbered partitions instead of relabelling them.
+- Avoid computed FPHA fits for DECOMP plants with zero rated capacity over the
+  complete horizon, preserving their physical zero bounds.
 - Allow Cobre 0.16 for NEWAVE conversion and validation in separate runtime
-  environments. See [NEWAVE compatibility](docs/cobre-016-newave.md); the DECOMP
-  boundary conversion remains paired with Cobre 0.15.
+  environments. See [NEWAVE compatibility](docs/cobre-016-newave.md) and
+  [DECOMP boundary compatibility](docs/decomp-boundary-fcf-build.md).
 
 ### Added
 

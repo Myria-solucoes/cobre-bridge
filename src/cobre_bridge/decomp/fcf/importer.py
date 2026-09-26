@@ -622,7 +622,11 @@ def _emit_import_diagnostics(
 
 
 def _patch_policy_boundary(
-    writer: CaseWriter, config: dict, *, source_stage: int
+    writer: CaseWriter,
+    config: dict,
+    *,
+    source_stage: int,
+    priced_state_date: int | None = None,
 ) -> None:
     """Set ``["policy"]["boundary"]`` in ``config.json``, preserving the rest.
 
@@ -645,7 +649,9 @@ def _patch_policy_boundary(
     # default `cobre run <case>` will not find `case_dir/boundary` — callers
     # must run with `--output <case_dir>` until cobre resolves
     # policy.boundary.path relative to case_dir.
-    policy["boundary"] = {"path": "boundary", "source_stage": source_stage}
+    policy["boundary"] = {"path": "boundary"}
+    if priced_state_date is None:
+        policy["boundary"]["source_stage"] = source_stage
     writer.write_json("config.json", config)
 
 
@@ -751,7 +757,11 @@ def import_boundary_fcf(
     writer = CaseWriter(case_dir)
 
     cortesh = Cortesh.read(str(case.files.cortesh))
-    cuts = read_cortes(case.files.cortes, cortesh, boundary_stage=None)
+    coupling_date = case.calendar[-1].start_date
+    expected_stage = (
+        coupling_date.year - int(cortesh.ano_inicio_estudo)
+    ) * 12 + coupling_date.month
+    cuts = read_cortes(case.files.cortes, cortesh, boundary_stage=expected_stage)
     # `BoundaryCuts.boundary_stage` is typed `int`, but a single-stage export's
     # derived value inherits `numpy.int32` from `cortesh.ano_inicio_estudo`'s
     # own numpy dtype (confirmed against this deck) — narrow to a plain `int`
@@ -837,6 +847,8 @@ def import_boundary_fcf(
         cobre_version=cobre.__version__,
     )
 
+    if manifest.season_manifest is not None:
+        metadata["season_manifest"] = manifest.season_manifest
     boundary_dir = case_dir / "boundary"
     write_boundary_checkpoint(
         boundary_dir,
@@ -850,7 +862,12 @@ def import_boundary_fcf(
     # calendar-month count, kept above only for the inflow-lag coupling
     # fold and the payload's own provenance `stage_id`) — the two axes only
     # coincidentally share a value.
-    _patch_policy_boundary(writer, config, source_stage=manifest.graph_stage_id)
+    _patch_policy_boundary(
+        writer,
+        config,
+        source_stage=manifest.graph_stage_id,
+        priced_state_date=manifest.priced_state_date,
+    )
 
     # Seed the pre-study inflow-lag state and record the mean fold — both gated
     # on the same mlt.dat presence as the fold above, so the raw seed never
@@ -876,6 +893,8 @@ def import_boundary_fcf(
     # --output=<case_dir>. Removal condition tracked in cobre's
     # conversion-found-improvements registry. The message below is
     # end-user-facing (no repo-internal references).
+    if manifest.priced_state_date is not None:
+        return boundary_dir
     _LOG.warning(
         "This case must be run with `cobre run %s --output %s`: the boundary "
         "cost-to-go checkpoint at %s is resolved relative to the run's output "

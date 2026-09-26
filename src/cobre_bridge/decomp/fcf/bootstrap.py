@@ -28,6 +28,7 @@ structural, present from iteration one.
 
 from __future__ import annotations
 
+import inspect
 import json
 import shutil
 from dataclasses import dataclass
@@ -92,6 +93,8 @@ class TerminalManifest:
     state_dimension: int
     node_id: int
     graph_stage_id: int
+    priced_state_date: int | None = None
+    season_manifest: dict | None = None
 
 
 def _flatten_terminal_fan(case_dir: Path, variant_dir: Path) -> None:
@@ -191,12 +194,17 @@ def bootstrap_terminal_manifest(case_dir: Path, *, work_dir: Path) -> TerminalMa
     config_overrides: dict[str, object] = {
         "training.stopping_rules": [{"type": "iteration_limit", "limit": 1}]
     }
+    run_options = {}
+    if "skip_simulation" in inspect.signature(cobre.run.run).parameters:
+        run_options["skip_simulation"] = True
+    else:
+        config_overrides["simulation.enabled"] = False
     cobre.run.run(
         str(variant_dir),
         output_dir=str(output_dir),
-        skip_simulation=True,
         config_overrides=config_overrides,
         on_iteration=lambda _info: True,
+        **run_options,
     )
 
     policy = cobre.results.load_policy(output_dir, policy_subdir="policy")
@@ -237,4 +245,6 @@ def bootstrap_terminal_manifest(case_dir: Path, *, work_dir: Path) -> TerminalMa
         state_dimension=terminal_state_dimension,
         node_id=node_id,
         graph_stage_id=graph_stage_id,
+        priced_state_date=terminal.get("priced_state_date"),
+        season_manifest=policy.get("metadata", {}).get("season_manifest"),
     )

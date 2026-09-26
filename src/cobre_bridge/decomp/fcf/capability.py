@@ -166,8 +166,12 @@ def _probe_cbvf_roundtrip() -> None:
             raise RuntimeError("reloaded terminal pool lacks graph_stage_id")
 
         entity_manifest = terminal["entity_manifest"]
-        if not entity_manifest or "delivery_date" not in entity_manifest[0]:
+        if not entity_manifest or not (
+            "delivery_date" in entity_manifest[0]
+            or {"reference_date", "interval_start", "interval_end"}.issubset(
+                entity_manifest[0]
+            )
+        ):
             raise RuntimeError(
-                "reloaded terminal entity_manifest slot lacks the CBVF "
-                "delivery_date key"
+                "reloaded terminal entity_manifest slot lacks the CBVF date metadata"
             )

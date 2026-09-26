@@ -16,6 +16,6 @@ explicit per-stage integrated productivity overrides remain explicit. The 0.16
 stored-energy output uses integrated accumulated productivity; consumers must
 use the matching productivity column for maximum-energy denominators.
 
-This compatibility extension covers NEWAVE. DECOMP boundary-checkpoint conversion
-still requires the 0.15 runtime: 0.16 changed boundary selection and policy format.
-Do not use the NEWAVE validation evidence as certification of that separate path.
+DECOMP boundary-checkpoint conversion has a separate compatibility path for 0.16;
+see [boundary import](decomp-boundary-fcf-build.md). NEWAVE validation evidence
+alone does not certify DECOMP conversion, boundary loading, or its inflow inputs.

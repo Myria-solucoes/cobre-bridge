@@ -168,7 +168,7 @@ def test_bootstrap_passes_single_iteration_run_contract(
     assert len(calls) == 1
     assert args == [str(tmp_path / "work" / "bootstrap_variant")]
     kwargs = calls[0]
-    assert kwargs["skip_simulation"] is True
+    assert kwargs["config_overrides"]["simulation.enabled"] is False
     assert kwargs["config_overrides"]["training.stopping_rules"] == [
         {"type": "iteration_limit", "limit": 1}
     ]

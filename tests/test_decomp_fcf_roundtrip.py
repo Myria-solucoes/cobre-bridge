@@ -413,7 +413,7 @@ def test_synthetic_roundtrip_theta_sweep(tmp_path: Path) -> None:
 
 @requires_cobre_python
 @requires_writer_binding
-def test_synthetic_roundtrip_carries_delivery_date(tmp_path: Path) -> None:
+def test_synthetic_roundtrip_carries_date_metadata(tmp_path: Path) -> None:
     """D5 — the CBVF write->load round trip carries `delivery_date`, no deck
     and no cobre binary.
 
@@ -433,5 +433,9 @@ def test_synthetic_roundtrip_carries_delivery_date(tmp_path: Path) -> None:
     reloaded = synthetic_roundtrip(tmp_path / "boundary", cuts, manifest, id_map)
 
     entry = reloaded["stage_cuts"][0]
-    assert "delivery_date" in entry["entity_manifest"][0]
+    slot = entry["entity_manifest"][0]
+    assert (
+        "delivery_date" in slot
+        or {"reference_date", "interval_start", "interval_end"} <= slot.keys()
+    )
     assert reloaded["metadata"]["producer"]["cost_scale_factor"] == 1.0

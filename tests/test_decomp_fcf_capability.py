@@ -92,7 +92,7 @@ def test_ensure_boundary_fcf_capability_raises_when_cobre_absent(
     assert isinstance(exc_info.value.__cause__, ModuleNotFoundError)
 
 
-def test_ensure_boundary_fcf_capability_raises_when_delivery_date_missing(
+def test_ensure_boundary_fcf_capability_raises_when_date_metadata_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """AC 3 -- a wheel that writes and reloads fine but whose reloaded
@@ -130,7 +130,7 @@ def test_ensure_boundary_fcf_capability_raises_when_delivery_date_missing(
     for marker in _REMEDIATION_MARKERS:
         assert marker in str(exc_info.value)
     assert isinstance(exc_info.value.__cause__, RuntimeError)
-    assert "delivery_date" in str(exc_info.value.__cause__)
+    assert "date metadata" in str(exc_info.value.__cause__)
 
 
 def test_ensure_boundary_fcf_capability_raises_when_cost_scale_factor_missing(

@@ -448,6 +448,9 @@ def test_read_cortes_synthetic_records_and_trailer_stage(tmp_path: Path) -> None
     assert record.forward_pass_index == 2
     assert record.is_active is True
 
+    with pytest.raises(ValueError, match="differs from DECOMP coupling stage"):
+        read_cortes(cortes_path, _FakeCortesh(), boundary_stage=11)
+
 
 def test_read_trailer_sentinel_vs_nonzero_rhs(tmp_path: Path) -> None:
     # A tiny record: int32[4] (16 bytes) + rhs float64 (8 bytes), no padding.

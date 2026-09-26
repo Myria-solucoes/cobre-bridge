@@ -43,6 +43,10 @@ def _plant_row(
         "produtibilidade_especifica": rho_esp,
         "canal_fuga_medio": 20.0,
         "tipo_perda": 0,
+        "numero_conjuntos_maquinas": 1,
+        "maquinas_conjunto_1": 1,
+        "vazao_nominal_conjunto_1": 100.0,
+        "potencia_nominal_conjunto_1": 100.0,
         "perdas": 0.0,
         "tipo_regulacao": tipo_regulacao,
     }
@@ -100,6 +104,14 @@ def test_fitting_window_collapses_for_run_of_river() -> None:
 def test_is_fpha_eligible_true_for_valid_reservoir() -> None:
     eff = _effective({1: _plant_row()})
     assert is_fpha_eligible(eff, 1) is True
+
+
+def test_fpha_excludes_zero_capacity_without_changing_reservoir() -> None:
+    row = _plant_row()
+    row["maquinas_conjunto_1"] = 0
+    eff = _effective({1: row})
+    assert is_fpha_eligible(eff, 1) is False
+    assert eff.value(1, "volume_maximo", 0) == row["volume_maximo"]
 
 
 def test_is_fpha_eligible_false_for_degenerate_cota() -> None:

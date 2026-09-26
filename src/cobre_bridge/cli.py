@@ -1152,11 +1152,15 @@ def _run_decomp_conversion(args: ConvertArgs) -> None:
             boundary_diagnostics = list(fcf_diags)
             # C8 surfacing (D7, TRACKED COBRE-GAP WORKAROUND — see
             # ``fcf/importer.py::_patch_policy_boundary`` and the cobre
-            # repository's conversion-found-improvements registry): until cobre
-            # resolves ``policy.boundary.path`` relative to case_dir rather than
-            # the run's --output directory, this case must be run with
-            # ``--output <case_dir>``.
-            run_constraint = f"--output={args.dst}"
+            # repository's conversion-found-improvements registry): legacy
+            # source_stage checkpoints resolve the boundary against output.
+            # Cobre 0.16 resolves it against the case and needs no constraint.
+            boundary_config = (
+                (fcf_inputs.config or {}).get("policy", {}).get("boundary", {})
+            )
+            run_constraint = (
+                f"--output={args.dst}" if "source_stage" in boundary_config else ""
+            )
             print_status(
                 f"Boundary FCF imported. Run this case with: "
                 f"cobre run {args.dst} {run_constraint}",
