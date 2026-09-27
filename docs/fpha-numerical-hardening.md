@@ -1,6 +1,6 @@
-# FPHA numerical hardening in NEWAVE conversion
+# FPHA numerical hardening in NEWAVE and DECOMP conversion
 
-`cobre-bridge convert newave` turns a requested computed FPHA model into a
+`cobre-bridge convert newave` and `cobre-bridge convert decomp` turn a requested computed FPHA model into a
 materialized, numerically conditioned input that Cobre can load through its
 supported precomputed-FPHA contract. This step is part of normal conversion; it
 does not train an SDDP policy or run a final simulation.
@@ -26,6 +26,10 @@ When at least one hydro requests computed FPHA, the converter therefore:
 
 The temporary Cobre output is discarded. The converted directory contains the
 conditioned, reproducible input artifact used by subsequent Cobre runs.
+Both converters use the same implementation. Publishing these planes with the
+case avoids architecture-dependent refitting on remote runners, including ARM.
+DECOMP materialization precedes terminal boundary-cut import and does not alter
+the imported NEWAVE cuts.
 
 ## Inactive hydro plants
 
@@ -52,6 +56,14 @@ cobre-bridge convert newave NEWAVE_CASE converted-case \
 ```
 
 Inspect the two FPHA diagnostics without parsing terminal text:
+
+For a DECOMP source, use the same diagnostic contract:
+
+```bash
+cobre-bridge convert decomp DECOMP_CASE converted-decomp \
+  --validate \
+  --diagnostics-json conversion-diagnostics.json
+```
 
 ```bash
 jq '.diagnostics[] | select(
@@ -102,4 +114,5 @@ returned `valid: true`.
   not round or refit physically meaningful FPHA coefficients.
 
 Regression coverage lives in `tests/test_numeric_hardening.py`,
-`tests/test_pipeline.py`, and `tests/test_fpha_conversion.py`.
+`tests/test_pipeline.py`, `tests/test_decomp_pipeline.py`, and
+`tests/test_fpha_conversion.py`.

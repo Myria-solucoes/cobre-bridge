@@ -29,10 +29,7 @@ from cobre_bridge.converters import tailrace as tailrace_conv
 from cobre_bridge.converters import temporal as temporal_conv
 from cobre_bridge.converters import thermal as thermal_conv
 from cobre_bridge.generic_constraint_builder import ConstraintIdAllocator
-from cobre_bridge.numeric_hardening import (
-    has_computed_fpha,
-    materialize_hardened_fpha,
-)
+from cobre_bridge.numeric_hardening import harden_case_fpha
 
 logger = logging.getLogger(__name__)
 
@@ -583,46 +580,7 @@ def _convert_newave_case_impl(
             )
 
     step("Hardening numerics")
-    if has_computed_fpha(production_models_dict):
-        hardened_path = dst / "system" / "fpha_hyperplanes.parquet"
-        if dry_run:
-            # The materialisation requires the complete on-disk case.  Dry-run's
-            # strict no-write contract therefore reports the final artifact without
-            # invoking Cobre preprocessing.
-            writer.would_write.append(hardened_path)
-        else:
-            hardened = materialize_hardened_fpha(dst, production_models_dict)
-            writer.write_parquet(
-                "system/fpha_hyperplanes.parquet", hardened.hyperplanes
-            )
-            writer.write_json(
-                "system/hydro_production_models.json",
-                hardened.production_models,
-            )
-            dx.emit(
-                dx.Diagnostic(
-                    code="fpha-numerical-hardening",
-                    severity=dx.Severity.INFO,
-                    category="Hydro production",
-                    title="FPHA hyperplanes numerically hardened",
-                    summary=(
-                        f"Materialized {hardened.hyperplanes.num_rows} computed FPHA "
-                        f"hyperplane row(s) and snapped {hardened.snapped_gamma_v} "
-                        "structurally-zero gamma_v coefficient(s) before selecting "
-                        "the precomputed source."
-                    ),
-                    notes=[
-                        "Snap threshold: |gamma_v| <= 1e-10 MW/hm3.",
-                        (
-                            "Smallest retained |gamma_v|: "
-                            f"{hardened.smallest_retained_gamma_v:.6g} MW/hm3."
-                            if hardened.smallest_retained_gamma_v is not None
-                            else "No non-zero gamma_v coefficient was retained."
-                        ),
-                    ],
-                ),
-                logger=logger,
-            )
+    harden_case_fpha(writer, production_models_dict)
 
     report.hydro_count = len(hydros_dict.get("hydros", []))
     report.thermal_count = len(thermals_dict.get("thermals", []))

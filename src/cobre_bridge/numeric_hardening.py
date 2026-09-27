@@ -11,12 +11,18 @@ that uses Cobre's supported ``precomputed`` source contract.
 from __future__ import annotations
 
 import copy
+import logging
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
 import pyarrow as pa
 import pyarrow.parquet as pq
+
+from cobre_bridge import diagnostics as dx
+from cobre_bridge.case_writer import CaseWriter
+
+_LOG = logging.getLogger(__name__)
 
 # Cobre accepts gamma_v down to -1e-10 as numerical noise.  Use the same symmetric
 # band for both signs so a coefficient cannot survive merely because hull round-off
@@ -34,6 +40,42 @@ class FphaHardeningResult:
     production_models: dict[str, object]
     snapped_gamma_v: int
     smallest_retained_gamma_v: float | None
+
+
+def harden_case_fpha(writer: CaseWriter, production_models: dict[str, object]) -> None:
+    """Publish portable FPHA planes through the shared conversion writer."""
+    if not has_computed_fpha(production_models):
+        return
+    if writer.dry_run:
+        writer.would_write.append(writer.dst / "system/fpha_hyperplanes.parquet")
+        return
+    hardened = materialize_hardened_fpha(writer.dst, production_models)
+    writer.write_parquet("system/fpha_hyperplanes.parquet", hardened.hyperplanes)
+    writer.write_json("system/hydro_production_models.json", hardened.production_models)
+    dx.emit(
+        dx.Diagnostic(
+            code="fpha-numerical-hardening",
+            severity=dx.Severity.INFO,
+            category="Hydro production",
+            title="FPHA hyperplanes numerically hardened",
+            summary=(
+                f"Materialized {hardened.hyperplanes.num_rows} computed FPHA "
+                f"hyperplane row(s) and snapped {hardened.snapped_gamma_v} "
+                "structurally-zero gamma_v coefficient(s) before selecting "
+                "the precomputed source."
+            ),
+            notes=[
+                "Snap threshold: |gamma_v| <= 1e-10 MW/hm3.",
+                (
+                    "Smallest retained |gamma_v|: "
+                    f"{hardened.smallest_retained_gamma_v:.6g} MW/hm3."
+                    if hardened.smallest_retained_gamma_v is not None
+                    else "No non-zero gamma_v coefficient was retained."
+                ),
+            ],
+        ),
+        logger=_LOG,
+    )
 
 
 def has_computed_fpha(value: object) -> bool:

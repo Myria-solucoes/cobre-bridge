@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Materialize DECOMP FPHA through the same numerical hardening as NEWAVE,
+  preserving portable precomputed planes instead of refitting on each runner.
+  See [FPHA numerical hardening](docs/fpha-numerical-hardening.md).
 - Support DECOMP boundary import on Cobre 0.16: preserve priced-state dates and
   season descriptors, map dated anticipated-thermal intervals, use the current
   simulation control, and resolve boundary files relative to the case.

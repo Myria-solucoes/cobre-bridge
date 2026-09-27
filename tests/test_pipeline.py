@@ -270,7 +270,7 @@ class TestConvertNewaweCasePipeline:
             )
             harden = stack.enter_context(
                 patch(
-                    "cobre_bridge.pipeline.materialize_hardened_fpha",
+                    "cobre_bridge.numeric_hardening.materialize_hardened_fpha",
                     return_value=hardening_result,
                 )
             )
@@ -323,7 +323,7 @@ class TestConvertNewaweCasePipeline:
                 )
             )
             harden = stack.enter_context(
-                patch("cobre_bridge.pipeline.materialize_hardened_fpha")
+                patch("cobre_bridge.numeric_hardening.materialize_hardened_fpha")
             )
             report = convert_newave_case(src, dst, dry_run=True)
 

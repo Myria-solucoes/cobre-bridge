@@ -57,6 +57,7 @@ from cobre_bridge.decomp.scalar_parameters import (
 )
 from cobre_bridge.errors import SourceFileError
 from cobre_bridge.generic_constraint_builder import ConstraintIdAllocator
+from cobre_bridge.numeric_hardening import harden_case_fpha
 from cobre_bridge.pipeline import (
     ClearedArtifacts,
     ConversionReport,
@@ -117,6 +118,7 @@ class DecompCaseArtifacts:
     config: dict | None = None
     stages_dict: dict | None = None
     hydros_dict: dict | None = None
+    production_models: dict | None = None
     thermals_dict: dict | None = None
     buses_doc: dict | None = None
     lines_doc: dict | None = None
@@ -1199,9 +1201,11 @@ def _convert_core_entities(artifacts: DecompCaseArtifacts, writer: CaseWriter) -
     # apart. A plain conversion (no boundary FCF) keeps the lag state at 0: its
     # inflow model is order 0 (no autoregression), so the lags are inert anyway.
     writer.write_json("initial_conditions.json", initial_conditions_doc)
+    artifacts.production_models = hydro_conv.convert_production_models(
+        id_map, fpha_configs, reference_volumes
+    )
     writer.write_json(
-        "system/hydro_production_models.json",
-        hydro_conv.convert_production_models(id_map, fpha_configs, reference_volumes),
+        "system/hydro_production_models.json", artifacts.production_models
     )
     writer.write_parquet(
         "system/hydro_energy_productivity.parquet", productivity_parquet
@@ -1913,6 +1917,9 @@ def _emit_and_write(
         len(fan_probabilities),
     )
 
+    assert artifacts.production_models is not None
+    harden_case_fpha(writer, artifacts.production_models)
+
     return ConversionReport(
         hydro_count=len(hydros_dict["hydros"]),
         thermal_count=len(thermals_dict["thermals"]),
@@ -1921,7 +1928,7 @@ def _emit_and_write(
         stage_count=len(calendar),
         study_stage_count=len(calendar),
         post_study_stage_count=0,
-        would_write_paths=[str(p) for p in writer.would_write],
+        would_write_paths=list(dict.fromkeys(str(p) for p in writer.would_write)),
     )
 
 

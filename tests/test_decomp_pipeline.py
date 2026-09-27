@@ -633,6 +633,51 @@ class _CadastroDadger:
         return None
 
 
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_decomp_materializes_portable_fpha_with_shared_hardening(tmp_path, dry_run):
+    from cobre_bridge.numeric_hardening import FphaHardeningResult
+
+    computed = {
+        "production_models": [{"hydro_id": 0, "fpha_config": {"source": "computed"}}]
+    }
+    precomputed = {
+        "production_models": [{"hydro_id": 0, "fpha_config": {"source": "precomputed"}}]
+    }
+    planes = pa.table({"gamma_v": [0.0, 1e-8]})
+    diagnostics = []
+    reports = []
+    with (
+        patch(
+            "cobre_bridge.decomp.pipeline.hydro_conv.convert_production_models",
+            return_value=computed,
+        ),
+        patch(
+            "cobre_bridge.numeric_hardening.materialize_hardened_fpha",
+            return_value=FphaHardeningResult(planes, precomputed, 1, 1e-8),
+        ) as harden,
+    ):
+        dst = _run_cadastro_pipeline(
+            tmp_path,
+            None,
+            dry_run=dry_run,
+            diagnostics_out=diagnostics,
+            report_out=reports,
+            exercise_fpha=True,
+        )
+    assert str(dst / "system/fpha_hyperplanes.parquet") in reports[0].would_write_paths
+    if dry_run:
+        harden.assert_not_called()
+        assert not dst.exists()
+    else:
+        harden.assert_called_once_with(dst, computed)
+        assert (
+            json.loads((dst / "system/hydro_production_models.json").read_text())
+            == precomputed
+        )
+        assert pq.read_table(dst / "system/fpha_hyperplanes.parquet").equals(planes)
+        assert any(d.code == "fpha-numerical-hardening" for d in diagnostics)
+
+
 def _run_cadastro_pipeline(
     tmp_path: Path,
     ac_volmax_frame: pd.DataFrame | None,
@@ -645,6 +690,7 @@ def _run_cadastro_pipeline(
     report_out: list[ConversionReport] | None = None,
     gnl_emission: GnlEmission | None = None,
     convert_gnl_mock_out: list[MagicMock] | None = None,
+    exercise_fpha: bool = False,
 ) -> Path:
     """Run ``convert_decomp_case`` against the fully synthetic mock deck
     above, patching every converter this ticket does not wire to a canned
@@ -833,6 +879,9 @@ def _run_cadastro_pipeline(
             "thermals": [{"id": 0}]
         }
     with ExitStack() as stack:
+        # Synthetic converter fixtures are not complete solver inputs.
+        if not exercise_fpha:
+            stack.enter_context(patch("cobre_bridge.decomp.pipeline.harden_case_fpha"))
         entered: dict[str, MagicMock] = {}
         for target, value in patches.items():
             entered[target] = stack.enter_context(patch(target, return_value=value))
