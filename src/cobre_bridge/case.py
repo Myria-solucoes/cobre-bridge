@@ -292,3 +292,19 @@ class NewaveCase:
             self.hidr,
             exph=self.exph,
         )
+
+
+def memoize_on_case(case: object, key: str, compute):
+    """Return ``compute()`` cached on *case* for the rest of this conversion.
+
+    For pure derivations that several converters need from the same parsed case
+    (e.g. the ``vazoes.dat`` history, the per-stage turbined table). Objects that
+    cannot hold attributes simply recompute.
+    """
+    cache = getattr(case, "__dict__", None)
+    if not isinstance(cache, dict):
+        return compute()
+    memo = cache.setdefault("_bridge_memo", {})
+    if key not in memo:
+        memo[key] = compute()
+    return memo[key]

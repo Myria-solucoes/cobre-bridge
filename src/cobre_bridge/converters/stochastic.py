@@ -19,7 +19,7 @@ import pyarrow as pa
 from inewave.newave import Cadic, Dger, Vazoes
 
 from cobre_bridge import cobre_schemas, plants
-from cobre_bridge.case import NewaveCase
+from cobre_bridge.case import NewaveCase, memoize_on_case
 from cobre_bridge.horizon import POST_STUDY_YEAR, study_horizon
 from cobre_bridge.id_map import NewaveIdMap
 from cobre_bridge.source_reading import read_text_file
@@ -229,6 +229,34 @@ def _vazpast_incremental(
     return incremental
 
 
+def _vazoes_history(case: NewaveCase) -> pd.DataFrame | None:
+    """The ``vazoes.dat`` history, parsed once per case (read-only for callers).
+
+    Both the incremental history and the inflow statistics consume it; the binary
+    parse dominates their cost.
+    """
+    return memoize_on_case(
+        case, "vazoes_history", lambda: read_vazoes_history(case.files.vazoes)
+    )
+
+
+def read_vazoes_history(path: Path) -> pd.DataFrame | None:
+    """Parse ``vazoes.dat`` into inewave's ``Vazoes.vazoes`` table, vectorized.
+
+    The file is a flat sequence of monthly records of ``Vazoes.POSTOS`` native
+    int32 values; inewave decodes each integer through a Python field object,
+    which dominates the conversion time. Anything that is not a whole number of
+    records keeps inewave's own reader.
+    """
+    postos = Vazoes.POSTOS
+    raw = Path(path).read_bytes()
+    record_size = postos * np.dtype(np.int32).itemsize
+    if not raw or len(raw) % record_size:
+        return Vazoes.read(path).vazoes
+    values = np.frombuffer(raw, dtype=np.int32).reshape(-1, postos).astype(np.int64)
+    return pd.DataFrame(values, columns=list(range(1, postos + 1)))
+
+
 def _incremental_history(
     case: NewaveCase,
     id_map: NewaveIdMap,
@@ -245,9 +273,7 @@ def _incremental_history(
     FileNotFoundError
         If the vazoes.dat DataFrame is absent or empty.
     """
-    # vazoes.dat is large and read only here, so it stays uncached on case.files.
-    vazoes_obj = Vazoes.read(case.files.vazoes)
-    df_vazoes: pd.DataFrame | None = vazoes_obj.vazoes
+    df_vazoes: pd.DataFrame | None = _vazoes_history(case)
     if df_vazoes is None or df_vazoes.empty:
         raise FileNotFoundError("vazoes.dat not found or empty")
 
@@ -331,8 +357,7 @@ def convert_inflow_stats(case: NewaveCase, id_map: NewaveIdMap) -> pa.Table:
     FileNotFoundError
         If ``vazoes.dat`` DataFrame is empty.
     """
-    vazoes_obj = Vazoes.read(case.files.vazoes)
-    df_vazoes: pd.DataFrame | None = vazoes_obj.vazoes
+    df_vazoes: pd.DataFrame | None = _vazoes_history(case)
 
     if df_vazoes is None or df_vazoes.empty:
         raise FileNotFoundError("vazoes.dat not found or empty")

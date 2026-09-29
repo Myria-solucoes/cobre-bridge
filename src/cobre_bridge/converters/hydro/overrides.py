@@ -11,7 +11,7 @@ import logging
 
 import pandas as pd
 
-from cobre_bridge.case import NewaveCase
+from cobre_bridge.case import NewaveCase, memoize_on_case
 from cobre_bridge.diagnostics import Diagnostic, DiagnosticTable, Severity, emit
 from cobre_bridge.horizon import POST_STUDY_YEAR
 
@@ -51,6 +51,22 @@ def _apply_permanent_overrides(
         _LOG.debug("MODIF.DAT not found; skipping permanent overrides.")
         return cadastro
 
+    # A dozen converters ask for the same overridden cadastro; build it once per
+    # (case, cadastro) and hand each caller its own copy, re-emitting the same
+    # diagnostics as a fresh computation would.
+    memo = memoize_on_case(case, "permanent_overrides", dict)
+    cached = memo.get(id(cadastro))
+    if cached is None or cached[0] is not cadastro:
+        cached = (cadastro, *_compute_permanent_overrides(cadastro, modif))
+        memo[id(cadastro)] = cached
+    _source, result, uncadastred, unsupported_perm = cached
+    _emit_permanent_override_diagnostics(uncadastred, unsupported_perm)
+    return result.copy()
+
+
+def _compute_permanent_overrides(
+    cadastro: pd.DataFrame, modif
+) -> tuple[pd.DataFrame, list[int], list[tuple[int, str]]]:
     result = cadastro.copy()
 
     # Ensure float dtype for columns that permanent overrides may assign floats
@@ -67,7 +83,7 @@ def _apply_permanent_overrides(
 
     usina_records = modif.usina()
     if not usina_records:
-        return result
+        return result, [], []
 
     # Loop-accumulate-then-emit-once: one record per skipped plant/record,
     # emitted after the loop (see the module's finalize_diagnostics de-dup).
@@ -123,6 +139,12 @@ def _apply_permanent_overrides(
             else:
                 unsupported_perm.append((code, type_name))
 
+    return result, uncadastred, unsupported_perm
+
+
+def _emit_permanent_override_diagnostics(
+    uncadastred: list[int], unsupported_perm: list[tuple[int, str]]
+) -> None:
     if uncadastred:
         emit(
             Diagnostic(
@@ -163,8 +185,6 @@ def _apply_permanent_overrides(
             ),
             logger=_LOG,
         )
-
-    return result
 
 
 def read_cadastro(case: NewaveCase) -> pd.DataFrame:
@@ -224,7 +244,7 @@ def _extract_temporal_overrides(
 
     usina_records = modif.usina()
     if not usina_records:
-        return result
+        return result, [], []
 
     # Loop-accumulate-then-emit-once (see _apply_permanent_overrides above).
     unknown_temporal: list[tuple[int, str]] = []

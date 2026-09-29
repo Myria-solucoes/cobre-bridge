@@ -11,12 +11,12 @@ from __future__ import annotations
 
 import logging
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 import pandas as pd
 import pyarrow as pa
 
-from cobre_bridge.case import NewaveCase
+from cobre_bridge.case import NewaveCase, memoize_on_case
 from cobre_bridge.converters.hydro.geometry import _read_volref_saz
 from cobre_bridge.converters.hydro.overrides import (
     _apply_permanent_overrides,
@@ -133,7 +133,10 @@ def _compute_max_turbined_rated(hreg: pd.Series) -> tuple[float, float]:
 
 
 def _compute_max_turbined_head_corrected(
-    hreg: pd.Series, name: str, *, h_op_override: float | None = None
+    hreg: pd.Series | Mapping[str, object],
+    name: str,
+    *,
+    h_op_override: float | None = None,
 ) -> tuple[float, float]:
     """Return ``(max_turbined, max_generation)`` using the head-corrected the
     source-model-style cap.
@@ -188,7 +191,7 @@ def _compute_max_turbined_head_corrected(
     fixtures with partial schemas working.
     """
     n_sets = int(hreg["numero_conjuntos_maquinas"])
-    available_cols = set(hreg.index)
+    available_cols = set(hreg.keys())
     has_head_data = all(
         f"queda_nominal_conjunto_{i}" in available_cols for i in range(1, 6)
     ) and all(f"a{i}_volume_cota" in available_cols for i in range(5))
@@ -349,6 +352,20 @@ def convert_turbined_bounds_head_corrected(
     Returns a ``(hydro_id, stage_id, max_turbined_m3s)`` table for the affected
     plants/stages, or ``None`` when no plant has a per-stage head.
     """
+    # The pipeline emits this table and ``convert_hydros`` derives its envelope
+    # from it: compute it once per (case, id_map).
+    memo = memoize_on_case(case, "turbined_bounds_head_corrected", dict)
+    cached = memo.get(id(id_map))
+    if cached is not None and cached[0] is id_map:
+        return cached[1]
+    table = _convert_turbined_bounds_head_corrected(case, id_map)
+    memo[id(id_map)] = (id_map, table)
+    return table
+
+
+def _convert_turbined_bounds_head_corrected(
+    case: NewaveCase, id_map: NewaveIdMap
+) -> pa.Table | None:
     cadastro = _apply_permanent_overrides(case.hidr.cadastro, case)
     confhd_codes = [int(r["codigo_usina"]) for _, r in case.active_hydros.iterrows()]
 
@@ -397,12 +414,15 @@ def convert_turbined_bounds_head_corrected(
             total_stages,
             seasonal_volref_by_month=plant_seasonal,
         )
+        # Plain-dict row: identical values, without pandas' per-lookup overhead
+        # across every stage of every plant.
+        hrow = hreg.to_dict()
         for stage_id, prod in enumerate(per_stage_prod):
             if prod <= 0.0:
                 continue
             h_op = prod / rho_esp
             max_turbined = _compute_max_turbined_head_corrected(
-                hreg, name, h_op_override=h_op
+                hrow, name, h_op_override=h_op
             )[0]
             hydro_ids.append(hydro_id)
             stage_ids.append(stage_id)
