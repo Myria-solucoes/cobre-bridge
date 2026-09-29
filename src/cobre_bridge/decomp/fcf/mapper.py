@@ -27,7 +27,10 @@ import math
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 from cobre_bridge.converters.network import C_M3S2HM3
+from cobre_bridge.decomp.fcf.cortes import cut_matrices
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
@@ -754,71 +757,68 @@ def map_boundary_cuts(
     cost_unit_factor = cost_unit_hours
     inflow_lag_factor = cost_unit_hours * C_M3S2HM3
 
-    mapped_cuts: list[MappedCut] = []
-    for record in cuts.records:
-        coefficients = [0.0] * manifest.state_dimension
-        # Mean-fold accumulator (see the module header + `inflow_lag_means`): the
-        # source prices the inflow *deviation* Q - mu, but cobre evaluates the
-        # loaded cut at its raw lag state Q, so the seasonal mean is folded into
-        # the intercept. Summed per record over exactly the lag coefficients
-        # actually placed, so a dropped plant/lag contributes nothing to the
-        # fold either — the fold can never reference a term cobre won't apply.
-        inflow_lag_coefficients: dict[int, tuple[float, ...]] = {}
-        rhs_fold = 0.0
-        for plant_index, targets in resolved_storage.items():
-            # `targets` is one slot for an ordinary plant, or several for a
-            # complexo (CX): the same coefficient replicates onto every
-            # component, so `Σ` over them reconstructs the complexo's aggregate
-            # term (aggregate state = Σ component states — module header).
-            storage_coefficient = record.pi_varm[plant_index] * cost_unit_factor
-            plant_lags = record.pi_qafl[plant_index]
-            for hydro_id, storage_position in targets:
-                coefficients[storage_position] = storage_coefficient
-                plant_means = (
-                    inflow_lag_means.get(hydro_id)
-                    if inflow_lag_means is not None
-                    else None
-                )
-                if lag_bound > 0:
-                    # The manifest already carries this hydro's HydroInflowLag
-                    # slots — place each depth's coefficient into the aligned
-                    # vector (join 1:1 by `lag_slot_of`).
-                    for depth_index, subindex in enumerate(lag_subindices):
-                        lag_position = slot_positions.get(
-                            (_HYDRO_INFLOW_LAG, hydro_id, subindex)
-                        )
-                        if lag_position is not None:
-                            lag_coefficient = (
-                                plant_lags[depth_index] * inflow_lag_factor
-                            )
-                            coefficients[lag_position] = lag_coefficient
-                            if plant_means is not None:
-                                rhs_fold += lag_coefficient * plant_means[depth_index]
-                elif inflow_lag_depth > 0:
-                    # The manifest carries no lag slots (a DECOMP case has no
-                    # PAR(p) model for cobre to size them from), so emit the lag
-                    # coefficients keyed by hydro (depth 1..N); cobre's
-                    # write_policy_checkpoint reserves the canonical
-                    # HydroInflowLag slots and places them. Same per-depth
-                    # scaling and mean-fold as the aligned path above.
-                    lag_coeffs = tuple(
-                        plant_lags[depth_index] * inflow_lag_factor
-                        for depth_index in range(inflow_lag_depth)
+    # Vectorized over the cuts: every column is the same per-record scalar
+    # expression evaluated for all records at once, applied in the same order
+    # (so a slot written twice keeps its last writer), and the mean fold is
+    # accumulated term by term in the scalar loop's order — the result is
+    # bit-identical to mapping one record at a time.
+    matrices = cut_matrices(cuts)
+    n_cuts = len(cuts.records)
+    coefficient_matrix = np.zeros((n_cuts, manifest.state_dimension), dtype=float)
+    rhs_fold = np.zeros(n_cuts, dtype=float)
+    inflow_lag_columns: dict[int, np.ndarray] = {}
+    for plant_index, targets in resolved_storage.items():
+        # `targets` is one slot for an ordinary plant, or several for a
+        # complexo (CX): the same coefficient replicates onto every
+        # component, so `Σ` over them reconstructs the complexo's aggregate
+        # term (aggregate state = Σ component states — module header).
+        storage_coefficient = matrices.pi_varm[:, plant_index] * cost_unit_factor
+        plant_lags = matrices.pi_qafl[:, plant_index, :]
+        for hydro_id, storage_position in targets:
+            coefficient_matrix[:, storage_position] = storage_coefficient
+            plant_means = (
+                inflow_lag_means.get(hydro_id) if inflow_lag_means is not None else None
+            )
+            if lag_bound > 0:
+                # The manifest already carries this hydro's HydroInflowLag
+                # slots — place each depth's coefficient into the aligned
+                # vector (join 1:1 by `lag_slot_of`).
+                for depth_index, subindex in enumerate(lag_subindices):
+                    lag_position = slot_positions.get(
+                        (_HYDRO_INFLOW_LAG, hydro_id, subindex)
                     )
-                    inflow_lag_coefficients[hydro_id] = lag_coeffs
-                    if plant_means is not None:
-                        for depth_index in range(inflow_lag_depth):
-                            rhs_fold += (
-                                lag_coeffs[depth_index] * plant_means[depth_index]
+                    if lag_position is not None:
+                        lag_coefficient = plant_lags[:, depth_index] * inflow_lag_factor
+                        coefficient_matrix[:, lag_position] = lag_coefficient
+                        if plant_means is not None:
+                            rhs_fold = rhs_fold + (
+                                lag_coefficient * plant_means[depth_index]
                             )
+            elif inflow_lag_depth > 0:
+                # The manifest carries no lag slots (a DECOMP case has no
+                # PAR(p) model for cobre to size them from), so emit the lag
+                # coefficients keyed by hydro (depth 1..N); cobre's
+                # write_policy_checkpoint reserves the canonical
+                # HydroInflowLag slots and places them. Same per-depth
+                # scaling and mean-fold as the aligned path above.
+                lag_coeffs = plant_lags[:, :inflow_lag_depth] * inflow_lag_factor
+                if lag_coeffs.shape[1] != inflow_lag_depth:
+                    raise IndexError("tuple index out of range")
+                inflow_lag_columns[hydro_id] = lag_coeffs
+                if plant_means is not None:
+                    for depth_index in range(inflow_lag_depth):
+                        rhs_fold = rhs_fold + (
+                            lag_coeffs[:, depth_index] * plant_means[depth_index]
+                        )
 
-        for gnl_position, gnl_cols in resolved_gnl.items():
-            # Hours-weighted collapse: `pi_gnl` prices an energy
-            # state, so each patamar column is weighted by that patamar's own
-            # coupling-block hours, not by the coupling stage's total hours.
-            # `coupling_block_hours` is guaranteed non-None here — validated
-            # above whenever `resolved_gnl` is non-empty.
-            coefficients[gnl_position] = math.fsum(
+    for gnl_position, gnl_cols in resolved_gnl.items():
+        # Hours-weighted collapse: `pi_gnl` prices an energy
+        # state, so each patamar column is weighted by that patamar's own
+        # coupling-block hours, not by the coupling stage's total hours.
+        # `coupling_block_hours` is guaranteed non-None here — validated
+        # above whenever `resolved_gnl` is non-empty.
+        coefficient_matrix[:, gnl_position] = [
+            math.fsum(
                 record.pi_gnl[column] * hours
                 for column, hours in zip(
                     gnl_cols,
@@ -826,22 +826,34 @@ def map_boundary_cuts(
                     strict=True,
                 )
             )
+            for record in cuts.records
+        ]
 
-        if len(coefficients) != manifest.state_dimension:
-            raise ValueError(
-                f"mapped coefficient vector length {len(coefficients)} != "
-                f"state_dimension {manifest.state_dimension}"
-            )
+    if coefficient_matrix.shape[1] != manifest.state_dimension:
+        raise ValueError(
+            f"mapped coefficient vector length {coefficient_matrix.shape[1]} != "
+            f"state_dimension {manifest.state_dimension}"
+        )
 
+    intercepts = (matrices.rhs * cost_unit_factor - rhs_fold).tolist()
+    coefficient_rows = coefficient_matrix.tolist()
+    inflow_lag_rows = {
+        hydro_id: columns.tolist() for hydro_id, columns in inflow_lag_columns.items()
+    }
+    mapped_cuts: list[MappedCut] = []
+    for index, record in enumerate(cuts.records):
         mapped_cuts.append(
             MappedCut(
-                intercept=record.rhs * cost_unit_factor - rhs_fold,
-                coefficients=tuple(coefficients),
+                intercept=intercepts[index],
+                coefficients=tuple(coefficient_rows[index]),
                 cut_id=record.cut_id,
                 iteration=record.iteration,
                 forward_pass_index=record.forward_pass_index,
                 is_active=record.is_active,
-                inflow_lag_coefficients=inflow_lag_coefficients,
+                inflow_lag_coefficients={
+                    hydro_id: tuple(rows[index])
+                    for hydro_id, rows in inflow_lag_rows.items()
+                },
             )
         )
 

@@ -118,6 +118,50 @@ class CutFamilySummary:
     rhs_max: float
 
 
+@dataclass(frozen=True)
+class CutMatrices:
+    """The cut coefficients of a :class:`BoundaryCuts` as float64 arrays.
+
+    Row ``k`` is ``records[k]``; the values are exactly the records' floats
+    (both come from the same ``to_numpy(dtype=float)`` frame), so vectorized
+    consumers reproduce the per-record arithmetic bit for bit.
+    """
+
+    rhs: np.ndarray  # (n_cuts,)
+    pi_varm: np.ndarray  # (n_cuts, n_plants)
+    pi_qafl: np.ndarray  # (n_cuts, n_plants, 12)
+    pi_gnl: np.ndarray  # (n_cuts, n_gnl_slots)
+
+
+def cut_matrices(cuts: BoundaryCuts) -> CutMatrices:
+    """Return (and cache on ``cuts``) the :class:`CutMatrices` of ``cuts``.
+
+    :func:`read_cortes` attaches the arrays it already decoded; hand-built
+    ``BoundaryCuts`` (tests, fixtures) get them from their records once.
+    """
+    cached = getattr(cuts, "_matrices", None)
+    if cached is not None:
+        return cached
+    records = cuts.records
+    n_cuts = len(records)
+    n_plants = len(records[0].pi_varm) if records else cuts.header.n_plants
+    n_gnl = len(records[0].pi_gnl) if records else 0
+    matrices = CutMatrices(
+        rhs=np.array([r.rhs for r in records], dtype=float).reshape(n_cuts),
+        pi_varm=np.array([r.pi_varm for r in records], dtype=float).reshape(
+            n_cuts, n_plants
+        ),
+        pi_qafl=np.array([r.pi_qafl for r in records], dtype=float).reshape(
+            n_cuts, n_plants, 12
+        ),
+        pi_gnl=np.array([r.pi_gnl for r in records], dtype=float).reshape(
+            n_cuts, n_gnl
+        ),
+    )
+    object.__setattr__(cuts, "_matrices", matrices)
+    return matrices
+
+
 def summarize_cut_families(cuts: BoundaryCuts) -> CutFamilySummary:
     """Triage which cut coefficient families are nonzero in ``cuts``.
 
@@ -136,40 +180,28 @@ def summarize_cut_families(cuts: BoundaryCuts) -> CutFamilySummary:
             f"BoundaryCuts for stage {cuts.boundary_stage} has no active cuts"
         )
 
-    n_plants = cuts.header.n_plants
-    n_gnl_slots = len(cuts.records[0].pi_gnl)
-
-    storage_nonzero = [False] * n_plants
-    lag_nonzero_by_plant = [[False] * 12 for _ in range(n_plants)]
-    gnl_nonzero = [False] * n_gnl_slots
+    matrices = cut_matrices(cuts)
     rhs_min = float("inf")
     rhs_max = float("-inf")
-
     for record in cuts.records:
         rhs_min = min(rhs_min, record.rhs)
         rhs_max = max(rhs_max, record.rhs)
-        for i, value in enumerate(record.pi_varm):
-            if abs(value) > _NONZERO_TOLERANCE:
-                storage_nonzero[i] = True
-        for i, lags in enumerate(record.pi_qafl):
-            plant_lags = lag_nonzero_by_plant[i]
-            for lag_index, value in enumerate(lags):
-                if abs(value) > _NONZERO_TOLERANCE:
-                    plant_lags[lag_index] = True
-        for i, value in enumerate(record.pi_gnl):
-            if abs(value) > _NONZERO_TOLERANCE:
-                gnl_nonzero[i] = True
+
+    # Plant/slot-level OR across the cuts: the same ``abs(value) > tol`` test
+    # per coefficient, evaluated on the arrays instead of one float at a time.
+    storage_nonzero = np.any(np.abs(matrices.pi_varm) > _NONZERO_TOLERANCE, axis=0)
+    lag_nonzero_by_plant = np.any(np.abs(matrices.pi_qafl) > _NONZERO_TOLERANCE, axis=0)
+    gnl_nonzero = np.any(np.abs(matrices.pi_gnl) > _NONZERO_TOLERANCE, axis=0)
 
     lag_nonzero_by_depth = tuple(
-        sum(1 for plant_lags in lag_nonzero_by_plant if plant_lags[lag_index])
-        for lag_index in range(12)
+        int(count) for count in lag_nonzero_by_plant.sum(axis=0, dtype=np.int64)
     )
 
     return CutFamilySummary(
         n_active_cuts=len(cuts.records),
-        storage_nonzero_plants=sum(storage_nonzero),
+        storage_nonzero_plants=int(storage_nonzero.sum()),
         lag_nonzero_by_depth=lag_nonzero_by_depth,
-        gnl_nonzero_slots=sum(gnl_nonzero),
+        gnl_nonzero_slots=int(gnl_nonzero.sum()),
         rhs_min=rhs_min,
         rhs_max=rhs_max,
     )
@@ -391,7 +423,7 @@ def _validate_sar_zero(
 
 def _build_records(
     df: pd.DataFrame, header: CortesHeader, cortesh: Cortesh
-) -> tuple[StageCutRecord, ...]:
+) -> tuple[CutMatrices, tuple[StageCutRecord, ...]]:
     """Build :class:`StageCutRecord` tuples from ``.cortes``'s named columns.
 
     Coefficients are sliced by explicit column name (never by position) so
@@ -427,17 +459,25 @@ def _build_records(
     iteration_values = df["iteracao_construcao"].to_numpy(dtype=int).tolist()
     forward_pass_values = df["indice_forward"].to_numpy(dtype=int).tolist()
     deactivation_values = df["iteracao_desativacao"].to_numpy(dtype=int).tolist()
-    rhs_values = df["rhs"].to_numpy(dtype=float).tolist()
-    varm_values = df[varm_cols].to_numpy(dtype=float).tolist()
-    qafl_values = (
-        df[qafl_cols]
-        .to_numpy(dtype=float)
-        .reshape(len(df), header.n_plants, 12)
-        .tolist()
+    rhs_array = df["rhs"].to_numpy(dtype=float)
+    varm_array = df[varm_cols].to_numpy(dtype=float)
+    qafl_array = (
+        df[qafl_cols].to_numpy(dtype=float).reshape(len(df), header.n_plants, 12)
     )
-    gnl_values = df[gnl_cols].to_numpy(dtype=float).tolist() if gnl_cols else None
+    gnl_array = (
+        df[gnl_cols].to_numpy(dtype=float)
+        if gnl_cols
+        else np.empty((len(df), 0), dtype=float)
+    )
+    matrices = CutMatrices(
+        rhs=rhs_array, pi_varm=varm_array, pi_qafl=qafl_array, pi_gnl=gnl_array
+    )
+    rhs_values = rhs_array.tolist()
+    varm_values = varm_array.tolist()
+    qafl_values = qafl_array.tolist()
+    gnl_values = gnl_array.tolist() if gnl_cols else None
 
-    return tuple(
+    return matrices, tuple(
         StageCutRecord(
             cut_id=cut_id_values[i],
             iteration=iteration_values[i],
@@ -525,9 +565,11 @@ def read_cortes(
     if cortes_df is None:
         raise ValueError(f"{cortes_path} produced no cut coefficient section")
 
-    records = _build_records(cortes_df, header, cortesh)
-    return BoundaryCuts(
+    matrices, records = _build_records(cortes_df, header, cortesh)
+    cuts = BoundaryCuts(
         header=header,
         boundary_stage=resolved_boundary_stage,
         records=records,
     )
+    object.__setattr__(cuts, "_matrices", matrices)
+    return cuts
