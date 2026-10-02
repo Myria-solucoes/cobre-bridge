@@ -1,8 +1,7 @@
 """DESSEM FCF export: Cobre policy checkpoint → mapcut/cortdeco binary."""
 
-from cobre_bridge.dessem.exporters.fcf.pipeline import EXPORT_PHASE_LABELS
-from cobre_bridge.dessem.exporters.fcf.premises import P3, P14, PREMISES
-from cobre_bridge.dessem.exporters.fcf.reader import (
+from cobre_bridge.dessem.exporters.fcf.core.premises import P3, P14, PREMISES
+from cobre_bridge.dessem.exporters.fcf.core.reader import (
     CUTS_SUBDIR,
     POLICY_MANIFEST_RELATIVE,
     SUPPORTED_FORMAT_VERSION,
@@ -19,6 +18,7 @@ from cobre_bridge.dessem.exporters.fcf.reader import (
     read_policy_manifest,
     read_stage_cuts,
 )
+from cobre_bridge.dessem.exporters.fcf.pipeline import EXPORT_PHASE_LABELS
 
 __all__ = [
     # Pipeline

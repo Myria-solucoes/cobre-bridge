@@ -1,6 +1,6 @@
 """Tests for dessem/exporters/fcf/premises.py."""
 
-from cobre_bridge.dessem.exporters.fcf.premises import P1, P3, P14, PREMISES
+from cobre_bridge.dessem.exporters.fcf.core.premises import P1, P3, P14, PREMISES
 
 
 class TestPremises:
@@ -31,4 +31,6 @@ class TestPremises:
     def test_premises_numbered_correctly(self) -> None:
         """Each premise starts with its number (P1, P2, etc.)."""
         for i, premise in enumerate(PREMISES, start=1):
-            assert premise.startswith(f"P{i}:"), f"Premise {i} should start with 'P{i}:'"
+            assert premise.startswith(f"P{i}:"), (
+                f"Premise {i} should start with 'P{i}:'"
+            )

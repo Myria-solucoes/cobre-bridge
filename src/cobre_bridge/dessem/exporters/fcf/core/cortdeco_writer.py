@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from numpy.typing import NDArray
 
-from cobre_bridge.dessem.exporters.fcf.layout import (
+from cobre_bridge.dessem.exporters.fcf.core.layout import (
     TAMANHO_CORTE,
     CutBlockOffsets,
     LayoutError,
@@ -32,7 +32,7 @@ from cobre_bridge.dessem.exporters.fcf.layout import (
     sync_directory,
     write_durably,
 )
-from cobre_bridge.dessem.exporters.fcf.mapper import (
+from cobre_bridge.dessem.exporters.fcf.core.mapper import (
     MappingError,
     hydro_code_for_position,
     index_slots,
@@ -42,7 +42,7 @@ from cobre_bridge.dessem.exporters.fcf.mapper import (
 )
 
 if TYPE_CHECKING:
-    from cobre_bridge.dessem.exporters.fcf.reader import (
+    from cobre_bridge.dessem.exporters.fcf.core.reader import (
         AffinePieceRecord,
         EntitySlotRecord,
     )
@@ -102,14 +102,12 @@ def _validate_lengths(cut: CutInput, offsets: CutBlockOffsets) -> None:
     expected_varm = offsets.pi_gnl - offsets.pi_varm
     if len(cut.pi_varm) != expected_varm:
         raise LayoutError(
-            f"pi_varm has {len(cut.pi_varm)} entries but layout expects "
-            f"{expected_varm}"
+            f"pi_varm has {len(cut.pi_varm)} entries but layout expects {expected_varm}"
         )
     expected_gnl = offsets.ncoef - offsets.pi_gnl
     if len(cut.pi_gnl) != expected_gnl:
         raise LayoutError(
-            f"pi_gnl has {len(cut.pi_gnl)} entries but layout expects "
-            f"{expected_gnl}"
+            f"pi_gnl has {len(cut.pi_gnl)} entries but layout expects {expected_gnl}"
         )
 
 
@@ -133,9 +131,7 @@ def _assert_gnl_input_is_zero(cuts: Sequence[Sequence[CutInput]]) -> None:
     """Refuse a non-zero `pi_gnl` while premise P14 holds."""
     for node, node_cuts in enumerate(cuts):
         for iteration, cut in enumerate(node_cuts):
-            nonzero = np.flatnonzero(
-                np.asarray(cut.pi_gnl, dtype=np.float64) != 0.0
-            )
+            nonzero = np.flatnonzero(np.asarray(cut.pi_gnl, dtype=np.float64) != 0.0)
             if nonzero.size:
                 slot = int(nonzero[0])
                 raise LayoutError(
@@ -156,8 +152,7 @@ def _assert_finite(
         position = int(bad[0])
         if position < pi_varm_width:
             raise LayoutError(
-                f"pi_varm position {position} is not finite: "
-                f"{coefficients[position]!r}"
+                f"pi_varm position {position} is not finite: {coefficients[position]!r}"
             )
         raise LayoutError(
             f"pi_gnl position {position - pi_varm_width} is not finite: "
@@ -168,17 +163,13 @@ def _assert_finite(
 def node_and_iteration(record_index: int, n_nodes: int) -> tuple[int, int]:
     """Which node and iteration own 0-based record `record_index`."""
     if record_index < 0:
-        raise LayoutError(
-            f"record_index must be non-negative, got {record_index}"
-        )
+        raise LayoutError(f"record_index must be non-negative, got {record_index}")
     if n_nodes <= 0:
         raise LayoutError(f"n_nodes must be positive, got {n_nodes}")
     return (n_nodes - 1) - (record_index % n_nodes), record_index // n_nodes
 
 
-def serialize_cut(
-    cut: CutInput, pointer: int, offsets: CutBlockOffsets
-) -> bytes:
+def serialize_cut(cut: CutInput, pointer: int, offsets: CutBlockOffsets) -> bytes:
     """One fixed `cortdeco` record: pointer, then `NCOEF` float64, zero-padded."""
     _validate_lengths(cut, offsets)
     rhs, coefficients = _convert(cut)
@@ -188,9 +179,7 @@ def serialize_cut(
     body = bytearray(TAMANHO_CORTE)
     pointer_view = np.frombuffer(body, dtype="<i4", count=1)
     pointer_view[0] = pointer
-    coefficient_view = np.frombuffer(
-        body, dtype="<f8", count=offsets.ncoef, offset=4
-    )
+    coefficient_view = np.frombuffer(body, dtype="<f8", count=offsets.ncoef, offset=4)
     coefficient_view[offsets.rhs] = rhs
     coefficient_view[offsets.pi_varm :] = coefficients
     return bytes(body)
@@ -227,8 +216,7 @@ def write_cortdeco(
     for node, node_cuts in enumerate(cuts):
         if len(node_cuts) != per_node:
             raise LayoutError(
-                f"node {node} carries {len(node_cuts)} cuts but "
-                f"expected {per_node}"
+                f"node {node} carries {len(node_cuts)} cuts but expected {per_node}"
             )
     _assert_gnl_input_is_zero(cuts)
 

@@ -16,8 +16,8 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
-from cobre_bridge.dessem.exporters.fcf.layout import sync_directory, write_durably
-from cobre_bridge.dessem.exporters.fcf.premises import PREMISES
+from cobre_bridge.dessem.exporters.fcf.core.layout import sync_directory, write_durably
+from cobre_bridge.dessem.exporters.fcf.core.premises import PREMISES
 
 _LOG = logging.getLogger(__name__)
 
@@ -97,9 +97,9 @@ def write_export_manifest(manifest: ExportManifest, path: Path) -> None:
     `.partial`-then-rename, the same idiom the binary writers use.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = (
-        json.dumps(asdict(manifest), indent=2, sort_keys=True) + "\n"
-    ).encode("utf-8")
+    payload = (json.dumps(asdict(manifest), indent=2, sort_keys=True) + "\n").encode(
+        "utf-8"
+    )
     temporary = path.with_name(path.name + ".partial")
     try:
         write_durably(temporary, payload)

@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import NDArray
 
-from cobre_bridge.dessem.exporters.fcf.layout import (
+from cobre_bridge.dessem.exporters.fcf.core.layout import (
     PHYSICAL_RECORD_FIRST,
     PHYSICAL_RECORD_LAST,
     RECORD_SIZE,
@@ -153,9 +153,7 @@ def read_mapcut(path: Path) -> MapcutContents:
     )
     travel_time_count = n_utv * numero_estagios
     travel_time_lags = (
-        read_int32_array(
-            19, travel_time_count, offset=20 + 8 * numero_estagios
-        )
+        read_int32_array(19, travel_time_count, offset=20 + 8 * numero_estagios)
         if travel_time_count
         else ()
     )

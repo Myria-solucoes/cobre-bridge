@@ -141,9 +141,7 @@ def _require_float(obj: Any, key: str, dotted: str) -> float:
     """Require a finite numeric value."""
     value = _require(obj, key, dotted)
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise InputReadError(
-            f"{dotted} must be a number, got {type(value).__name__}"
-        )
+        raise InputReadError(f"{dotted} must be a number, got {type(value).__name__}")
     number = float(value)
     if not math.isfinite(number):
         raise InputReadError(f"{dotted} must be a finite number, got {value!r}")
@@ -165,9 +163,7 @@ def _read_blocks(raw_stage: Any, stage_dotted: str) -> tuple[BlockInfo, ...]:
         BlockInfo(
             id=_require_int(block, "id", f"{stage_dotted}.blocks[{pos}].id"),
             name=_require_str(block, "name", f"{stage_dotted}.blocks[{pos}].name"),
-            hours=_require_float(
-                block, "hours", f"{stage_dotted}.blocks[{pos}].hours"
-            ),
+            hours=_require_float(block, "hours", f"{stage_dotted}.blocks[{pos}].hours"),
         )
         for pos, block in enumerate(blocks)
     )

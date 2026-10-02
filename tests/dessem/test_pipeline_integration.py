@@ -10,11 +10,10 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from cobre_bridge.dessem.exporters.fcf.cross_check import (
+from cobre_bridge.dessem.exporters.fcf.core.cross_check import (
     reject_pair,
 )
-from cobre_bridge.dessem.exporters.fcf.pipeline import ExportSettings, run_export
-from cobre_bridge.dessem.exporters.fcf.reader import (
+from cobre_bridge.dessem.exporters.fcf.core.reader import (
     AffinePieceRecord,
     EntitySlotRecord,
     ManifestEdgeRecord,
@@ -22,6 +21,7 @@ from cobre_bridge.dessem.exporters.fcf.reader import (
     PolicyManifest,
     StageCutPool,
 )
+from cobre_bridge.dessem.exporters.fcf.pipeline import ExportSettings, run_export
 
 
 def _make_pool(
@@ -109,10 +109,7 @@ def _make_pools_dict(n_stages: int = 3) -> dict[int, StageCutPool]:
     """Create pools dict without terminal pool (simulating load_pools behavior)."""
     slots = _make_slots(3)
     # 3 trunk pools for stages 0, 1, 2 (terminal pool 3 not included)
-    return {
-        i: _make_pool(i, i, i, slots, n_pieces=5)
-        for i in range(n_stages)
-    }
+    return {i: _make_pool(i, i, i, slots, n_pieces=5) for i in range(n_stages)}
 
 
 class TestPipelineIntegration:
@@ -151,9 +148,7 @@ class TestPipelineIntegration:
             patch(
                 "cobre_bridge.dessem.exporters.fcf.pipeline.read_policy_manifest"
             ) as mock_read_manifest,
-            patch(
-                "cobre_bridge.dessem.exporters.fcf.pipeline.load_pools"
-            ) as mock_load,
+            patch("cobre_bridge.dessem.exporters.fcf.pipeline.load_pools") as mock_load,
             patch(
                 "cobre_bridge.dessem.exporters.fcf.pipeline.nodes_by_pool"
             ) as mock_nodes,
@@ -197,9 +192,7 @@ class TestPipelineIntegration:
             patch(
                 "cobre_bridge.dessem.exporters.fcf.pipeline.read_policy_manifest"
             ) as mock_read_manifest,
-            patch(
-                "cobre_bridge.dessem.exporters.fcf.pipeline.load_pools"
-            ) as mock_load,
+            patch("cobre_bridge.dessem.exporters.fcf.pipeline.load_pools") as mock_load,
             patch(
                 "cobre_bridge.dessem.exporters.fcf.pipeline.nodes_by_pool"
             ) as mock_nodes,
@@ -248,9 +241,7 @@ class TestPipelineIntegration:
             patch(
                 "cobre_bridge.dessem.exporters.fcf.pipeline.read_policy_manifest"
             ) as mock_read_manifest,
-            patch(
-                "cobre_bridge.dessem.exporters.fcf.pipeline.load_pools"
-            ) as mock_load,
+            patch("cobre_bridge.dessem.exporters.fcf.pipeline.load_pools") as mock_load,
             patch(
                 "cobre_bridge.dessem.exporters.fcf.pipeline.nodes_by_pool"
             ) as mock_nodes,
@@ -294,9 +285,7 @@ class TestPipelineIntegration:
             patch(
                 "cobre_bridge.dessem.exporters.fcf.pipeline.read_policy_manifest"
             ) as mock_read_manifest,
-            patch(
-                "cobre_bridge.dessem.exporters.fcf.pipeline.load_pools"
-            ) as mock_load,
+            patch("cobre_bridge.dessem.exporters.fcf.pipeline.load_pools") as mock_load,
             patch(
                 "cobre_bridge.dessem.exporters.fcf.pipeline.nodes_by_pool"
             ) as mock_nodes,
@@ -394,7 +383,7 @@ class TestFailureManifest:
         tmp_path: Path,
     ) -> None:
         """Test that failure manifest is written on PolicyFormatError."""
-        from cobre_bridge.dessem.exporters.fcf.reader import PolicyFormatError
+        from cobre_bridge.dessem.exporters.fcf.core.reader import PolicyFormatError
 
         output_dir = tmp_path / "dessem_fcf"
 
@@ -432,7 +421,7 @@ class TestFailureManifest:
         tmp_path: Path,
     ) -> None:
         """Test that failure manifest is written on MappingError."""
-        from cobre_bridge.dessem.exporters.fcf.mapper import MappingError
+        from cobre_bridge.dessem.exporters.fcf.core.mapper import MappingError
 
         output_dir = tmp_path / "dessem_fcf"
         mock_manifest = _make_manifest()
@@ -444,9 +433,7 @@ class TestFailureManifest:
             patch(
                 "cobre_bridge.dessem.exporters.fcf.pipeline.read_policy_manifest"
             ) as mock_read_manifest,
-            patch(
-                "cobre_bridge.dessem.exporters.fcf.pipeline.load_pools"
-            ) as mock_load,
+            patch("cobre_bridge.dessem.exporters.fcf.pipeline.load_pools") as mock_load,
             patch(
                 "cobre_bridge.dessem.exporters.fcf.pipeline.nodes_by_pool"
             ) as mock_nodes,

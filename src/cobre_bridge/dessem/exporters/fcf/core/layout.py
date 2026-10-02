@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Protocol
 import numpy as np
 
 if TYPE_CHECKING:
-    from cobre_bridge.dessem.exporters.fcf.reader import EntitySlotRecord
+    from cobre_bridge.dessem.exporters.fcf.core.reader import EntitySlotRecord
 
 RECORD_SIZE = 48020
 TAMANHO_CORTE = 26976
@@ -126,9 +126,7 @@ def assert_mapcut_layout(path: Path, header: MapcutDimensions) -> None:
         for index in range(PHYSICAL_RECORD_FIRST, PHYSICAL_RECORD_LAST + 1):
             body = handle.read(RECORD_SIZE)
             if body.strip(b"\x00"):
-                offset = next(
-                    position for position, byte in enumerate(body) if byte
-                )
+                offset = next(position for position, byte in enumerate(body) if byte)
                 raise LayoutError(
                     f"record {index} is inside the zero-filled physical span "
                     f"(records {PHYSICAL_RECORD_FIRST}-{PHYSICAL_RECORD_LAST}) "
@@ -177,9 +175,7 @@ def cortdeco_block_offsets(
     n_patamares: int,
 ) -> CutBlockOffsets:
     """Calculate NCOEF and block start positions."""
-    ncoef = cortdeco_ncoef(
-        n_uhes, n_utv, max_lag, n_sbm_gnl, n_estagios, n_patamares
-    )
+    ncoef = cortdeco_ncoef(n_uhes, n_utv, max_lag, n_sbm_gnl, n_estagios, n_patamares)
     return CutBlockOffsets(
         rhs=0,
         pi_varm=1,
@@ -206,10 +202,7 @@ def cortdeco_gnl_offset(
         if not 0 <= value < bound:
             raise LayoutError(f"{name} must be in 0..{bound - 1}, got {value}")
     return (
-        offsets.pi_gnl
-        + sbm * (n_estagios * n_patamares)
-        + stage * n_patamares
-        + block
+        offsets.pi_gnl + sbm * (n_estagios * n_patamares) + stage * n_patamares + block
     )
 
 
@@ -234,8 +227,7 @@ def cut_head_indices(
             f"numero_cortes {numero_cortes} not divisible by n_nodes {n_nodes}"
         )
     return tuple(
-        numero_cortes - node if node < n_nodes else 0
-        for node in range(n_nodes_total)
+        numero_cortes - node if node < n_nodes else 0 for node in range(n_nodes_total)
     )
 
 
@@ -323,9 +315,7 @@ def assert_cortdeco_layout(path: Path, numero_cortes: int, n_nodes: int) -> None
     extra = pointers[numero_cortes]
     last_head = heads[n_nodes - 1]
     if extra != last_head:
-        raise LayoutError(
-            f"extra record's pointer is {extra}, expected {last_head}"
-        )
+        raise LayoutError(f"extra record's pointer is {extra}, expected {last_head}")
 
 
 def write_durably(path: Path, payload: bytes) -> None:
@@ -345,9 +335,7 @@ def sync_directory(path: Path) -> None:
         os.close(descriptor)
 
 
-def assert_gnl_span_is_zero(
-    path: Path, records: int, offsets: CutBlockOffsets
-) -> None:
+def assert_gnl_span_is_zero(path: Path, records: int, offsets: CutBlockOffsets) -> None:
     """Verify every record's pi_gnl span is zero (premise P14)."""
     width = offsets.ncoef - offsets.pi_gnl
     span = 8 * width
@@ -356,13 +344,10 @@ def assert_gnl_span_is_zero(
             handle.seek(index * TAMANHO_CORTE + 4 + 8 * offsets.pi_gnl)
             block = handle.read(span)
             if block.strip(b"\x00"):
-                position = next(
-                    offset for offset, byte in enumerate(block) if byte
-                )
+                position = next(offset for offset, byte in enumerate(block) if byte)
                 slot = position // 8
                 raise LayoutError(
-                    f"record {index}'s pi_gnl slot {slot} is not zero "
-                    f"(premise P14)"
+                    f"record {index}'s pi_gnl slot {slot} is not zero (premise P14)"
                 )
 
 

@@ -5,13 +5,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from cobre_bridge.dessem.exporters.fcf.cortdeco_writer import (
+from cobre_bridge.dessem.exporters.fcf.core.cortdeco_writer import (
     CutInput,
     serialize_cut,
     write_cortdeco,
     zeroed_gnl_block,
 )
-from cobre_bridge.dessem.exporters.fcf.layout import (
+from cobre_bridge.dessem.exporters.fcf.core.layout import (
     TAMANHO_CORTE,
     CutBlockOffsets,
     LayoutError,
@@ -152,7 +152,9 @@ class TestWriteCortdeco:
         self, tmp_path: Path, simple_offsets: CutBlockOffsets
     ) -> None:
         with pytest.raises(LayoutError, match="no cut-building nodes"):
-            write_cortdeco([], tmp_path / "cortdeco.rv0", numero_cortes=0, offsets=simple_offsets)
+            write_cortdeco(
+                [], tmp_path / "cortdeco.rv0", numero_cortes=0, offsets=simple_offsets
+            )
 
     def test_mismatched_numero_cortes_raises(
         self, tmp_path: Path, simple_offsets: CutBlockOffsets
@@ -187,5 +189,8 @@ class TestWriteCortdeco:
         ]
         with pytest.raises(LayoutError, match="P14"):
             write_cortdeco(
-                cuts, tmp_path / "cortdeco.rv0", numero_cortes=1, offsets=offsets_with_gnl
+                cuts,
+                tmp_path / "cortdeco.rv0",
+                numero_cortes=1,
+                offsets=offsets_with_gnl,
             )

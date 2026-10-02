@@ -20,13 +20,13 @@ import numpy as np
 from numpy.typing import NDArray
 
 if TYPE_CHECKING:
-    from cobre_bridge.dessem.exporters.fcf.inputs_reader import (
+    from cobre_bridge.dessem.exporters.fcf.core.inputs_reader import (
         BlockInfo,
         BusInfo,
         StageInfo,
         ThermalInfo,
     )
-    from cobre_bridge.dessem.exporters.fcf.reader import (
+    from cobre_bridge.dessem.exporters.fcf.core.reader import (
         EntitySlotRecord,
         PolicyManifest,
         StageCutPool,
@@ -193,8 +193,7 @@ def select_submarket_buses(buses: Sequence[BusInfo]) -> tuple[BusInfo, ...]:
     excluded = [bus for bus in buses if bus.id == EXCLUDED_BUS_ID]
     if len(excluded) != 1:
         raise MappingError(
-            f"expected exactly one bus with id {EXCLUDED_BUS_ID}, "
-            f"found {len(excluded)}"
+            f"expected exactly one bus with id {EXCLUDED_BUS_ID}, found {len(excluded)}"
         )
     if excluded[0].name != EXCLUDED_BUS_NAME:
         raise MappingError(
@@ -288,9 +287,7 @@ def discount_factors(
     if not stages:
         return ()
     if annual_rate <= -1.0:
-        raise MappingError(
-            f"annual discount rate must exceed -1, got {annual_rate}"
-        )
+        raise MappingError(f"annual discount rate must exceed -1, got {annual_rate}")
 
     origin = parse_start_date(stages[0])
     factors = []
@@ -365,8 +362,7 @@ def tree_indices(manifest: PolicyManifest) -> tuple[int, ...]:
     node_ids = [node.id for node in manifest.nodes]
     if node_ids != list(range(len(node_ids))):
         raise MappingError(
-            f"node ids must be contiguous 0..{len(node_ids) - 1}; "
-            f"got {node_ids[:8]}..."
+            f"node ids must be contiguous 0..{len(node_ids) - 1}; got {node_ids[:8]}..."
         )
     known = set(node_ids)
 
@@ -398,8 +394,7 @@ def first_node_per_stage(manifest: PolicyManifest) -> tuple[int, ...]:
     node_ids = [node.id for node in manifest.nodes]
     if node_ids != list(range(len(node_ids))):
         raise MappingError(
-            f"node ids must be contiguous 0..{len(node_ids) - 1}; "
-            f"got {node_ids[:8]}..."
+            f"node ids must be contiguous 0..{len(node_ids) - 1}; got {node_ids[:8]}..."
         )
 
     import itertools
@@ -422,8 +417,7 @@ def first_node_per_stage(manifest: PolicyManifest) -> tuple[int, ...]:
     expected = list(range(manifest.num_stages))
     if observed != expected:
         raise MappingError(
-            f"stage ids must be contiguous 0..{manifest.num_stages - 1}; "
-            f"got {observed}"
+            f"stage ids must be contiguous 0..{manifest.num_stages - 1}; got {observed}"
         )
     return tuple(first_by_stage[stage_id] + 1 for stage_id in observed)
 
@@ -461,9 +455,7 @@ def load_hydro_codes(path: Path) -> tuple[int, ...]:
     except json.JSONDecodeError as exc:
         raise MappingError(f"{path} is not valid JSON: {exc}") from exc
     if not isinstance(raw, dict):
-        raise MappingError(
-            f"{path} must hold a JSON object, got {type(raw).__name__}"
-        )
+        raise MappingError(f"{path} must hold a JSON object, got {type(raw).__name__}")
     if not raw:
         raise MappingError(f"{path} holds no entries")
 
@@ -482,8 +474,7 @@ def load_hydro_codes(path: Path) -> tuple[int, ...]:
             )
         if type(value) is not int:
             raise MappingError(
-                f"{path} entry {key!r} must map to an int, "
-                f"got {type(value).__name__}"
+                f"{path} entry {key!r} must map to an int, got {type(value).__name__}"
             )
         positions[position] = value
 
@@ -494,9 +485,7 @@ def load_hydro_codes(path: Path) -> tuple[int, ...]:
             f"{path} is not contiguous from 0: missing position(s) {missing[:10]}"
         )
     codes = tuple(positions[position] for position in sorted(positions))
-    repeated = sorted(
-        code for code, count in Counter(codes).items() if count > 1
-    )
+    repeated = sorted(code for code, count in Counter(codes).items() if count > 1)
     if repeated:
         raise MappingError(
             f"{path} maps more than one position to DECOMP plant code(s) "

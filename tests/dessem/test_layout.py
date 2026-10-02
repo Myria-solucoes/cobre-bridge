@@ -2,7 +2,7 @@
 
 import pytest
 
-from cobre_bridge.dessem.exporters.fcf.layout import (
+from cobre_bridge.dessem.exporters.fcf.core.layout import (
     PHYSICAL_RECORD_COUNT,
     PHYSICAL_RECORD_FIRST,
     PHYSICAL_RECORD_LAST,

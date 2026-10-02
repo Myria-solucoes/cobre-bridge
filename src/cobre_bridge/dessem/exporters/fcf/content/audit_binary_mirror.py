@@ -15,11 +15,11 @@ import logging
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 
-from cobre_bridge.dessem.exporters.fcf.cross_check import (
+from cobre_bridge.dessem.exporters.fcf.core.cross_check import (
     CortdecoContents,
     MapcutContents,
 )
-from cobre_bridge.dessem.exporters.fcf.layout import (
+from cobre_bridge.dessem.exporters.fcf.core.layout import (
     PHYSICAL_RECORD_FIRST,
     PHYSICAL_RECORD_LAST,
 )
@@ -119,9 +119,7 @@ def _mapcut_rows(contents: MapcutContents) -> Iterator[tuple[object, ...]]:
             first_node,
         )
     for position, blocks in enumerate(contents.patamares_por_estagio):
-        yield (
-            stage_record, "reg6_stage", 1, "patamares_por_estagio", position, blocks
-        )
+        yield (stage_record, "reg6_stage", 1, "patamares_por_estagio", position, blocks)
     for position, lag in enumerate(contents.travel_time_lags):
         yield (stage_record, "reg6_stage", 1, "lag_tempo_viagem", position, lag)
 

@@ -17,7 +17,7 @@ from typing import Literal
 
 import numpy as np
 
-from cobre_bridge.dessem.exporters.fcf.layout import (
+from cobre_bridge.dessem.exporters.fcf.core.layout import (
     PHYSICAL_RECORD_COUNT,
     PHYSICAL_RECORD_FIRST,
     PHYSICAL_RECORD_LAST,
@@ -166,9 +166,7 @@ def _general_record(header: MapcutHeader) -> bytes:
 
 def _case_record(header: MapcutHeader) -> bytes:
     """Reg 2: case metadata."""
-    return _record(
-        1, ("<i4", (TAMANHO_CORTE, header.dia, header.mes, header.ano))
-    )
+    return _record(1, ("<i4", (TAMANHO_CORTE, header.dia, header.mes, header.ano)))
 
 
 def _stage_record(header: MapcutHeader) -> bytes:
@@ -268,9 +266,7 @@ def write_mapcut(header: MapcutHeader, path: Path) -> int:
         "P3: travel-time (tempo de viagem) coefficients not yet supported — "
         "n_utv=0, pi_qdefp block empty"
     )
-    _LOG.warning(
-        "P11: reg 10 cost fields emitted as zeros except taxa_desconto"
-    )
+    _LOG.warning("P11: reg 10 cost fields emitted as zeros except taxa_desconto")
     _LOG.warning("P12: reg 9 trailing GNL block emitted as zeros")
     _LOG.info(
         "wrote mapcut %s: records=%d bytes=%d numero_cortes=%d numero_cenarios=%d",

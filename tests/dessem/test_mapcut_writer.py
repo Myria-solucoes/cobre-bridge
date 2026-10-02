@@ -4,8 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from cobre_bridge.dessem.exporters.fcf.layout import RECORD_SIZE, LayoutError
-from cobre_bridge.dessem.exporters.fcf.mapcut_writer import MapcutHeader, write_mapcut
+from cobre_bridge.dessem.exporters.fcf.core.layout import RECORD_SIZE, LayoutError
+from cobre_bridge.dessem.exporters.fcf.core.mapcut_writer import (
+    MapcutHeader,
+    write_mapcut,
+)
 
 
 @pytest.fixture
@@ -115,7 +118,9 @@ class TestMapcutValidation:
         with pytest.raises(LayoutError, match="inconsistent"):
             write_mapcut(header, tmp_path / "mapcut.rv0")
 
-    def test_nonzero_n_utv_raises(self, tmp_path: Path, minimal_header: MapcutHeader) -> None:
+    def test_nonzero_n_utv_raises(
+        self, tmp_path: Path, minimal_header: MapcutHeader
+    ) -> None:
         # Create header with n_utv > 0 (not supported per P3)
         header = MapcutHeader(
             numero_iteracoes=minimal_header.numero_iteracoes,

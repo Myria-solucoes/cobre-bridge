@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from cobre_bridge.dessem.exporters.fcf.inputs_reader import (
+from cobre_bridge.dessem.exporters.fcf.core.inputs_reader import (
     BlockInfo,
     BusInfo,
     CaseInputs,
@@ -20,8 +20,8 @@ from cobre_bridge.dessem.exporters.fcf.inputs_reader import (
     StageInfo,
     ThermalInfo,
 )
-from cobre_bridge.dessem.exporters.fcf.layout import CutBlockOffsets
-from cobre_bridge.dessem.exporters.fcf.reader import (
+from cobre_bridge.dessem.exporters.fcf.core.layout import CutBlockOffsets
+from cobre_bridge.dessem.exporters.fcf.core.reader import (
     AffinePieceRecord,
     EntitySlotRecord,
     ManifestEdgeRecord,
@@ -166,16 +166,25 @@ def synthetic_inputs() -> CaseInputs:
     )
     hydros = (
         HydroInfo(
-            id=1, name="UHE_A", downstream_id=None,
-            min_storage_hm3=0.0, max_storage_hm3=100.0
+            id=1,
+            name="UHE_A",
+            downstream_id=None,
+            min_storage_hm3=0.0,
+            max_storage_hm3=100.0,
         ),
         HydroInfo(
-            id=2, name="UHE_B", downstream_id=1,
-            min_storage_hm3=0.0, max_storage_hm3=200.0
+            id=2,
+            name="UHE_B",
+            downstream_id=1,
+            min_storage_hm3=0.0,
+            max_storage_hm3=200.0,
         ),
         HydroInfo(
-            id=3, name="UHE_C", downstream_id=1,
-            min_storage_hm3=0.0, max_storage_hm3=150.0
+            id=3,
+            name="UHE_C",
+            downstream_id=1,
+            min_storage_hm3=0.0,
+            max_storage_hm3=150.0,
         ),
     )
     thermals = (
@@ -242,8 +251,7 @@ def synthetic_case_dir(tmp_path: Path, synthetic_inputs: CaseInputs) -> Path:
                 "start_date": s.start_date,
                 "end_date": s.end_date,
                 "blocks": [
-                    {"id": b.id, "name": b.name, "hours": b.hours}
-                    for b in s.blocks
+                    {"id": b.id, "name": b.name, "hours": b.hours} for b in s.blocks
                 ],
                 "state_variables": {
                     "storage": s.storage_state,

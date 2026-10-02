@@ -11,7 +11,7 @@ import pytest
 from typer.testing import CliRunner
 
 from cobre_bridge.cli.app import app
-from cobre_bridge.dessem.exporters.fcf.reader import (
+from cobre_bridge.dessem.exporters.fcf.core.reader import (
     AffinePieceRecord,
     EntitySlotRecord,
     ManifestEdgeRecord,
@@ -144,7 +144,9 @@ class TestExportDessemFcfCli:
             ],
         )
         assert result.exit_code == 1
-        assert "not found" in result.stdout.lower() or "not found" in result.stderr.lower()
+        assert (
+            "not found" in result.stdout.lower() or "not found" in result.stderr.lower()
+        )
 
     def test_missing_hydro_codes_file(
         self, synthetic_case_dir: Path, tmp_path: Path
@@ -179,9 +181,7 @@ class TestExportDessemFcfCli:
             patch(
                 "cobre_bridge.dessem.exporters.fcf.pipeline.read_policy_manifest"
             ) as mock_read_manifest,
-            patch(
-                "cobre_bridge.dessem.exporters.fcf.pipeline.load_pools"
-            ) as mock_load,
+            patch("cobre_bridge.dessem.exporters.fcf.pipeline.load_pools") as mock_load,
             patch(
                 "cobre_bridge.dessem.exporters.fcf.pipeline.nodes_by_pool"
             ) as mock_nodes,
@@ -257,9 +257,7 @@ class TestExportDessemFcfCli:
             patch(
                 "cobre_bridge.dessem.exporters.fcf.pipeline.read_policy_manifest"
             ) as mock_read_manifest,
-            patch(
-                "cobre_bridge.dessem.exporters.fcf.pipeline.load_pools"
-            ) as mock_load,
+            patch("cobre_bridge.dessem.exporters.fcf.pipeline.load_pools") as mock_load,
             patch(
                 "cobre_bridge.dessem.exporters.fcf.pipeline.nodes_by_pool"
             ) as mock_nodes,
@@ -305,9 +303,7 @@ class TestExportDessemFcfCli:
             patch(
                 "cobre_bridge.dessem.exporters.fcf.pipeline.read_policy_manifest"
             ) as mock_read_manifest,
-            patch(
-                "cobre_bridge.dessem.exporters.fcf.pipeline.load_pools"
-            ) as mock_load,
+            patch("cobre_bridge.dessem.exporters.fcf.pipeline.load_pools") as mock_load,
             patch(
                 "cobre_bridge.dessem.exporters.fcf.pipeline.nodes_by_pool"
             ) as mock_nodes,
@@ -348,9 +344,7 @@ class TestExportDessemFcfCli:
             patch(
                 "cobre_bridge.dessem.exporters.fcf.pipeline.read_policy_manifest"
             ) as mock_read_manifest,
-            patch(
-                "cobre_bridge.dessem.exporters.fcf.pipeline.load_pools"
-            ) as mock_load,
+            patch("cobre_bridge.dessem.exporters.fcf.pipeline.load_pools") as mock_load,
             patch(
                 "cobre_bridge.dessem.exporters.fcf.pipeline.nodes_by_pool"
             ) as mock_nodes,

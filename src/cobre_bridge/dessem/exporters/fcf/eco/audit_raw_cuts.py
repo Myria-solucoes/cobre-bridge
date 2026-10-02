@@ -16,7 +16,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, TextIO
 
 if TYPE_CHECKING:
-    from cobre_bridge.dessem.exporters.fcf.reader import EntitySlotRecord, StageCutPool
+    from cobre_bridge.dessem.exporters.fcf.core.reader import (
+        EntitySlotRecord,
+        StageCutPool,
+    )
 
 _LOG = logging.getLogger(__name__)
 
