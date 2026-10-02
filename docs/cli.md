@@ -285,7 +285,7 @@ $ cobre-bridge check decomp [OPTIONS] {src}
 
 ## `cobre-bridge export`
 
-Export Cobre artifacts to external formats.
+Export Cobre artifacts to external formats (DESSEM, etc.).
 
 **Usage**:
 
@@ -299,7 +299,7 @@ $ cobre-bridge export [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `dessem-fcf`: Export Cobre FCF to DESSEM-compatible format.
+* `dessem-fcf`: Export Cobre FCF to DESSEM-compatible...
 
 ### `cobre-bridge export dessem-fcf`
 
@@ -312,7 +312,8 @@ The --revision flag is required and determines the output file extension
 (mapcut.rv0, cortdeco.rv0, etc.).
 
 The --hydro-codes flag points to a JSON file mapping Cobre hydro positions
-to DECOMP plant codes.
+to DECOMP plant codes. If not provided, uses the bundled default mapping.
+
 
 Warnings logged during export:
 - P3: travel-time (tempo de viagem) coefficients not yet supported
@@ -321,20 +322,21 @@ Warnings logged during export:
 **Usage**:
 
 ```console
-$ cobre-bridge export dessem-fcf [OPTIONS] CASE_DIR
+$ cobre-bridge export dessem-fcf [OPTIONS] {case_dir}
 ```
 
 **Arguments**:
 
-* `CASE_DIR`: Path to the solved Cobre case directory.  [required]
+* `case_dir`: Path to the solved Cobre case directory.  [required]
 
 **Options**:
 
-* `-r, --revision TEXT`: PMO revision (e.g., rv0, rv1). Required.
-* `--hydro-codes PATH`: Path to hydro codes JSON mapping file. Default: bundled decomp_hydro_codes.json.
-* `-o, --output PATH`: Output directory. Default: CASE_DIR/dessem_fcf/.
+* `-r, --revision <str>`: PMO revision (e.g., rv0, rv1). Required.  [required]
+* `-o, --output <path>`: Output directory. Default: CASE_DIR/dessem_fcf/
 * `--force`: Overwrite existing outputs.
+* `--hydro-codes PATH`: Path to hydro codes JSON mapping file. Default: bundled decomp_hydro_codes.json
 * `--include-terminal`: Include terminal pool in ECO CSV output.
+* `--audit-csv`: Emit audit CSVs (eco/ and content/ directories).
 * `--json`: Emit a single machine-readable JSON verdict to stdout.
 * `-v, --verbose`: Increase console log verbosity (-v INFO, -vv DEBUG).  [default: 0]
 * `--log-file PATH`: Write the full DEBUG log to PATH.
