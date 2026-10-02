@@ -124,9 +124,13 @@ app = typer.Typer(
 convert_app = typer.Typer(help="Convert data from a source format to Cobre JSON.")
 compare_app = typer.Typer(help="Compare source model inputs/results against Cobre.")
 check_app = typer.Typer(help="Validate source-model inputs without converting.")
+
+from cobre_bridge.cli.export import export_app
+
 app.add_typer(convert_app, name="convert")
 app.add_typer(compare_app, name="compare")
 app.add_typer(check_app, name="check")
+app.add_typer(export_app, name="export")
 
 
 def _version_callback(value: bool) -> None:
