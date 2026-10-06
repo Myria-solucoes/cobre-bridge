@@ -299,9 +299,9 @@ $ cobre-bridge export [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `dessem-fcf`: Export Cobre FCF to DESSEM-compatible...
+* `dessem`: Export Cobre FCF to DESSEM-compatible...
 
-### `cobre-bridge export dessem-fcf`
+### `cobre-bridge export dessem`
 
 Export Cobre FCF to DESSEM-compatible mapcut/cortdeco format.
 
@@ -322,7 +322,7 @@ Warnings logged during export:
 **Usage**:
 
 ```console
-$ cobre-bridge export dessem-fcf [OPTIONS] {case_dir}
+$ cobre-bridge export dessem [OPTIONS] {case_dir}
 ```
 
 **Arguments**:

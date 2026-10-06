@@ -20,8 +20,10 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from Cobre.IO.Policy.CheckpointManifest import CheckpointManifest
-from Cobre.IO.Policy.StageCuts import StageCuts
+from cobre_bridge.cobre.flatbuffers.IO.Policy.CheckpointManifest import (
+    CheckpointManifest,
+)
+from cobre_bridge.cobre.flatbuffers.IO.Policy.StageCuts import StageCuts
 
 _LOG = logging.getLogger(__name__)
 

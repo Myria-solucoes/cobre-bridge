@@ -1,6 +1,6 @@
 # DESSEM FCF Export
 
-`export dessem-fcf` converts a Cobre policy checkpoint from a solved case into
+`export dessem` converts a Cobre policy checkpoint from a solved case into
 the DECOMP-format binary cut files (`mapcut`, `cortdeco`) that DESSEM uses to
 import a cost-to-go function. This page covers the workflow, output artifacts,
 the 15 conversion premises, configuration, and current limitations.
@@ -9,10 +9,10 @@ the 15 conversion premises, configuration, and current limitations.
 
 ```bash
 # Export FCF from a solved Cobre case (uses bundled default hydro codes)
-cobre-bridge export dessem-fcf /path/to/case --revision rv0
+cobre-bridge export dessem /path/to/case --revision rv0
 
 # Or specify a custom hydro codes file
-cobre-bridge export dessem-fcf /path/to/case \
+cobre-bridge export dessem /path/to/case \
     --revision rv0 \
     --hydro-codes /path/to/custom_hydro_codes.json
 ```
@@ -24,7 +24,7 @@ The output appears in `<case>/dessem_fcf/` by default.
 ### Basic Export
 
 ```bash
-cobre-bridge export dessem-fcf CASE_DIR --revision REV --hydro-codes PATH
+cobre-bridge export dessem CASE_DIR --revision REV --hydro-codes PATH
 ```
 
 `CASE_DIR` is a solved Cobre case containing `output/policy/` with the policy
