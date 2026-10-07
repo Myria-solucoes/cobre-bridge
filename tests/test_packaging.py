@@ -92,3 +92,15 @@ def test_uv_lock_cobre_python_floors_at_min_cobre_version() -> None:
         f"uv.lock cobre-python specifier {specifier!r} must floor at "
         f"MIN_COBRE_VERSION {MIN_COBRE_VERSION!r}"
     )
+
+
+def test_declared_and_locked_ranges_accept_cobre_018() -> None:
+    from packaging.requirements import Requirement
+    from packaging.specifiers import SpecifierSet
+
+    requirement = Requirement(_cobre_python_pin(_core_dependencies()))
+    locked = SpecifierSet(_lock_cobre_python_requirement()["specifier"])
+    for specifier in (requirement.specifier, locked):
+        assert "0.18.0" in specifier
+        assert "0.16.0" in specifier
+        assert "0.19.0" not in specifier

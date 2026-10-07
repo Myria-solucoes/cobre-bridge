@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Accept Cobre 0.18 in the runtime dependency range. Boundary policies must be
+  converted with the exact solver variant that will consume them; see
+  [Cobre 0.18 compatibility](docs/cobre-018.md).
+
 - Materialize DECOMP FPHA through the same numerical hardening as NEWAVE,
   preserving portable precomputed planes instead of refitting on each runner.
   See [FPHA numerical hardening](docs/fpha-numerical-hardening.md).
