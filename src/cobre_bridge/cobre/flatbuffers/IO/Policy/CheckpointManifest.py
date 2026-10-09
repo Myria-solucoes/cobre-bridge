@@ -85,7 +85,7 @@ class CheckpointManifest(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from Cobre.IO.Policy.ManifestNode import ManifestNode
+            from cobre_bridge.cobre.flatbuffers.IO.Policy.ManifestNode import ManifestNode
             obj = ManifestNode()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -111,7 +111,7 @@ class CheckpointManifest(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from Cobre.IO.Policy.ManifestEdge import ManifestEdge
+            from cobre_bridge.cobre.flatbuffers.IO.Policy.ManifestEdge import ManifestEdge
             obj = ManifestEdge()
             obj.Init(self._tab.Bytes, x)
             return obj
