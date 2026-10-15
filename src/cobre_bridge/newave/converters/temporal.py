@@ -15,6 +15,7 @@ from datetime import date
 from inewave.newave import Dger
 
 from cobre_bridge.cobre import schemas as cobre_schemas
+from cobre_bridge.core.penalties import INFLOW_NON_NEGATIVITY_METHOD
 from cobre_bridge.core.season_calendar import block_names, monthly_season_definitions
 from cobre_bridge.newave.case import NewaveCase
 from cobre_bridge.newave.horizon import study_horizon
@@ -643,9 +644,7 @@ def convert_config(case: NewaveCase) -> dict:
         "estimation": estimation,
         "training": training_section,
         "modeling": {
-            "inflow_non_negativity": {
-                "method": "truncation_with_penalty",
-            },
+            "inflow_non_negativity": {"method": INFLOW_NON_NEGATIVITY_METHOD},
         },
         "exports": {
             "states": export_states,

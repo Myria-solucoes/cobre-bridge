@@ -28,6 +28,7 @@ from cobre_bridge.core.preflight import (
     PreflightResult,
     PreflightVerdict,
     optional_input_advisory,
+    tab_character_advisory,
 )
 from cobre_bridge.newave.files import NewaveFiles
 from cobre_bridge.newave.switches import (
@@ -105,6 +106,10 @@ def run_preflight(src: Path) -> PreflightResult:
     optional_checks, optional_diags = optional_input_advisory(files)
     checks.extend(optional_checks)
     diagnostics.extend(optional_diags)
+
+    tab_checks, tab_diags = tab_character_advisory(files.fixed_column_files)
+    checks.extend(tab_checks)
+    diagnostics.extend(tab_diags)
 
     switch_checks, switch_diags = _switch_advisory(files)
     checks.extend(switch_checks)
