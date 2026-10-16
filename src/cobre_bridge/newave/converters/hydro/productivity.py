@@ -23,6 +23,7 @@ from cobre_bridge.core.productivity import (
     integrated_productivity,
     stored_energy_productivity,
 )
+from cobre_bridge.core.source_text import read_source_text
 from cobre_bridge.newave.case import NewaveCase
 from cobre_bridge.newave.converters.hydro.geometry import (
     _read_volref_saz,
@@ -79,7 +80,7 @@ def _parse_fpha_plane_reduction(case: NewaveCase) -> dict | None:
         return None
 
     methods: list[dict] = []
-    for raw in path.read_text(encoding="utf-8").splitlines():
+    for raw in read_source_text(path).splitlines():
         line = raw.strip()
         if not line or line.startswith("&"):
             continue
