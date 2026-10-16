@@ -20,6 +20,7 @@ from cobre_bridge.core.generic_constraint_format import GENERIC_BOUNDS_COLUMNS
 from cobre_bridge.core.units import C_M3S2HM3
 from cobre_bridge.newave.case import NewaveCase
 from cobre_bridge.newave.converters.constraints import (
+    _cascade_sum,
     _curve_seasonalizes,
     _ElectricTermSkip,
     _is_stored_energy_reservoir,
@@ -1867,3 +1868,32 @@ def test_restricao_eletrica_bounds_stop_at_the_declared_end(tmp_path: Path) -> N
     df = result[1].to_pandas()
     assert set(df[df["bound_upper"].notna()]["stage_id"]) == {0, 1, 2}
     assert set(df[df["bound_lower"].notna()]["stage_id"]) == {0, 1, 2}
+
+
+# ---------------------------------------------------------------------------
+# _cascade_sum cycle detection
+# ---------------------------------------------------------------------------
+
+
+def test_cascade_sum_detects_cycle() -> None:
+    """A cycle in the downstream map raises BridgeError with the path."""
+    from cobre_bridge.core.errors import BridgeError
+
+    # Crafted cycle: 1 → 2 → 1
+    downstream_map: dict[int, int | None] = {1: 2, 2: 1}
+    values = {1: 10.0, 2: 20.0}
+
+    with pytest.raises(BridgeError, match=r"Cascade cycle detected.*1.*2.*1"):
+        _cascade_sum(downstream_map, values)
+
+
+def test_cascade_sum_no_cycle() -> None:
+    """Normal cascade without cycle works correctly."""
+    # Linear cascade: 1 → 2 → 3 → None (sea sink)
+    downstream_map: dict[int, int | None] = {1: 2, 2: 3, 3: None}
+    values = {1: 10.0, 2: 20.0, 3: 30.0}
+
+    result = _cascade_sum(downstream_map, values)
+
+    # result[3] = 30, result[2] = 20 + 30 = 50, result[1] = 10 + 50 = 60
+    assert result == {1: 60.0, 2: 50.0, 3: 30.0}
