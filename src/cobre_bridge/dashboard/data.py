@@ -18,7 +18,13 @@ import polars as pl
 import pyarrow.parquet as pq
 
 from cobre_bridge.cobre.case_io import resolve_hydro_productivities
+from cobre_bridge.cobre.constraint_expr import (
+    ResolvedGenericConstraints,
+    resolve_generic_constraints,
+)
 from cobre_bridge.cobre.readers import (
+    read_cobre_generic_constraint_echo,
+    read_cobre_hydro_metadata,
     read_cobre_line_bounds,
     read_cobre_lines,
     read_cobre_training_metadata,
@@ -1027,27 +1033,32 @@ def load_output_metadata(case_dir: Path) -> OutputMetadata:
 
 @dataclasses.dataclass
 class GenericConstraintData:
-    """Generic-constraint definitions and their resolved bounds (optional).
+    """Generic constraints as cobre resolved them (optional).
 
-    F3 shape: ``constraints`` dicts carry no ``sense`` key, and ``bounds``
-    has nullable ``bound_lower``/``bound_upper`` endpoint columns instead of
-    a single ``bound`` column (see
+    ``resolved`` is the comparison-ready view (see
+    :func:`cobre_bridge.cobre.constraint_expr.resolve_generic_constraints`):
+    coefficients and bounds read from the run's echo. F3 shape:
+    ``constraints`` dicts carry no ``sense`` key, and ``bounds`` has nullable
+    ``bound_lower``/``bound_upper`` endpoint columns instead of a single
+    ``bound`` column (see
     :mod:`cobre_bridge.core.generic_constraint_format`). Readers derive the
     displayed direction from the endpoints via
     :func:`cobre_bridge.dashboard.tabs.constraints_utils.derive_constraint_shape`.
     """
 
-    constraints: list[dict]
-    bounds: pd.DataFrame
+    resolved: ResolvedGenericConstraints
+
+    @property
+    def constraints(self) -> list[dict]:
+        return self.resolved.constraints
+
+    @property
+    def bounds(self) -> pd.DataFrame:
+        return self.resolved.bounds.to_pandas()
 
 
 def load_generic_constraints(case_dir: Path) -> GenericConstraintData:
-    """Load constraints/generic_constraints.json and the bounds parquet.
-
-    The bounds parquet is read verbatim (whatever columns the converter
-    wrote — the F3 ``bound_lower``/``bound_upper`` pair, not a single
-    ``bound`` column); no column selection happens here.
-    """
+    """Load ``constraints/generic_constraints.json`` resolved against the run's echo."""
     gc_path = case_dir / "constraints" / "generic_constraints.json"
     constraints: list[dict] = []
     if gc_path.exists():
@@ -1055,13 +1066,18 @@ def load_generic_constraints(case_dir: Path) -> GenericConstraintData:
             gc_data = json.load(f)
         constraints = gc_data.get("constraints", [])
 
-    gc_bounds_path = case_dir / "constraints" / "generic_constraint_bounds.parquet"
-    bounds = (
-        pq.read_table(gc_bounds_path).to_pandas()
-        if gc_bounds_path.exists()
-        else pd.DataFrame()
+    output_dir = case_dir / "output"
+    min_storage = {
+        hid: float(meta.get("min_storage_hm3") or 0.0)
+        for hid, meta in read_cobre_hydro_metadata(output_dir).items()
+    }
+    return GenericConstraintData(
+        resolve_generic_constraints(
+            constraints,
+            read_cobre_generic_constraint_echo(output_dir) if constraints else None,
+            min_storage,
+        )
     )
-    return GenericConstraintData(constraints=constraints, bounds=bounds)
 
 
 def _phase_note(training_available: bool, simulation_available: bool) -> str:
@@ -1386,6 +1402,10 @@ class DashboardData:
     @property
     def gc_bounds(self) -> pd.DataFrame:
         return self.gc.bounds
+
+    @property
+    def gc_resolved(self) -> ResolvedGenericConstraints:
+        return self.gc.resolved
 
     @property
     def gc_violations(self) -> pd.DataFrame:
