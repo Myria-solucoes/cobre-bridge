@@ -62,7 +62,6 @@ def load_resolved_generic_constraints(
         load_generic_constraints(cobre_case_dir),
         cobre_readers.read_cobre_generic_constraint_echo(cobre_output_dir),
         min_storage,
-        cobre_readers.read_cobre_stage_hours(cobre_output_dir),
     )
 
 

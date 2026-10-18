@@ -27,7 +27,6 @@ from cobre_bridge.cobre.readers import (
     read_cobre_hydro_metadata,
     read_cobre_line_bounds,
     read_cobre_lines,
-    read_cobre_stage_hours,
     read_cobre_training_metadata,
 )
 from cobre_bridge.core.diagnostics import Diagnostic, Severity, emit
@@ -1038,10 +1037,10 @@ class GenericConstraintData:
 
     ``resolved`` is the comparison-ready view (see
     :func:`cobre_bridge.cobre.constraint_expr.resolve_generic_constraints`):
-    stage-split families merged, coefficients and bounds read from the run's
-    echo. F3 shape: ``constraints`` dicts carry no ``sense`` key, and
-    ``bounds`` has nullable ``bound_lower``/``bound_upper`` endpoint columns
-    instead of a single ``bound`` column (see
+    coefficients and bounds read from the run's echo. F3 shape:
+    ``constraints`` dicts carry no ``sense`` key, and ``bounds`` has nullable
+    ``bound_lower``/``bound_upper`` endpoint columns instead of a single
+    ``bound`` column (see
     :mod:`cobre_bridge.core.generic_constraint_format`). Readers derive the
     displayed direction from the endpoints via
     :func:`cobre_bridge.dashboard.tabs.constraints_utils.derive_constraint_shape`.
@@ -1077,7 +1076,6 @@ def load_generic_constraints(case_dir: Path) -> GenericConstraintData:
             constraints,
             read_cobre_generic_constraint_echo(output_dir) if constraints else None,
             min_storage,
-            read_cobre_stage_hours(output_dir),
         )
     )
 
@@ -1411,16 +1409,7 @@ class DashboardData:
 
     @property
     def gc_violations(self) -> pd.DataFrame:
-        """``violations/generic`` keyed by the shown (merged) constraint ids."""
-        violations = self.simulation.gc_violations
-        display_ids = self.gc.resolved.display_ids
-        if violations.empty or "constraint_id" not in violations.columns:
-            return violations
-        out = violations.copy()
-        out["constraint_id"] = (
-            out["constraint_id"].map(display_ids).fillna(out["constraint_id"])
-        ).astype(violations["constraint_id"].dtype)
-        return out
+        return self.simulation.gc_violations
 
     @property
     def hydro_bounds(self) -> pd.DataFrame:

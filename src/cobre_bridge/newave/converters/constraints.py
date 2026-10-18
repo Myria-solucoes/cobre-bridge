@@ -2,11 +2,11 @@
 and electric constraints from restricao-eletrica.csv.
 
 Converts the source model minimum stored energy constraints into Cobre generic
-constraints. Each REE with entries in ``curva.dat`` becomes one generic constraint per
-stage whose expression bounds the REE's useful stored energy (MWh) — the
-``hydro_useful_volume_final`` of its reservoirs weighted by cobre's scaled integrated
-accumulated productivity — from below by the curve fraction of its maximum useful
-stored energy.
+constraints. Each REE with entries in ``curva.dat`` becomes one generic constraint,
+bounded on every curve stage, whose expression bounds the REE's useful stored energy
+(MWh) — the ``hydro_useful_volume_final`` of its reservoirs weighted by cobre's
+integrated accumulated productivity in MWh/hm³ — from below by the curve fraction of
+its maximum useful stored energy (:mod:`cobre_bridge.core.stored_energy`).
 
 Electric constraints from ``restricao-eletrica.csv`` (discovered via
 ``indices.csv``) are converted into Cobre generic constraints with
@@ -27,26 +27,30 @@ import pandas as pd
 import pyarrow as pa
 
 from cobre_bridge.cobre import schemas as cobre_schemas
-from cobre_bridge.cobre.scalar_parameters import (
-    earm_max_name,
-    rho_acum_scaled_name,
-    rho_eq_scaled_name,
-)
 from cobre_bridge.core.diagnostics import Diagnostic, DiagnosticTable, Severity, emit
 from cobre_bridge.core.generic_constraint_builder import (
     ConstraintIdAllocator,
     GenericConstraintBuilder,
     GenericConstraintResult,
+    hard_slack,
+    soft_slack,
 )
 from cobre_bridge.core.productivity import (
     compute_productivity,
     stored_energy_productivity,
 )
 from cobre_bridge.core.source_text import read_source_text
+from cobre_bridge.core.stored_energy import (
+    StoredEnergyShare,
+    cascade_share,
+    cut_cascade_share,
+    downstream_share,
+    share_parameters,
+    stored_energy_floor,
+)
 from cobre_bridge.newave.case import NewaveCase
 from cobre_bridge.newave.converters.fict_cascade import resolve_cascade
 from cobre_bridge.newave.converters.hydro import _apply_permanent_overrides
-from cobre_bridge.newave.converters.temporal import _month_hours
 from cobre_bridge.newave.id_map import NewaveIdMap
 from cobre_bridge.newave.plants import active_hydros
 from cobre_bridge.newave.switches import switch_off_diagnostic
@@ -132,13 +136,15 @@ class VminopResult(NamedTuple):
     null — VminOP is stage-level, never per-block). ``per_stage_parameters``
     maps each ``pct_vminop_ree{code}`` name the expressions reference to its
     per-stage curve fraction (one value per study stage, ``0.0`` where the REE
-    has no curve), for ``build_scalar_parameters``.
+    has no curve) and ``expression_parameters`` maps each coupled-cascade
+    share's parameter to its body, both for ``build_scalar_parameters``.
     """
 
     constraints_dict: dict
     bounds: pa.Table
     referenced_hydro_ids: list[int]
     per_stage_parameters: dict[str, list[float]]
+    expression_parameters: dict[str, str]
 
 
 def vminop_pct_name(ree_code: int) -> str:
@@ -146,41 +152,30 @@ def vminop_pct_name(ree_code: int) -> str:
     return f"pct_vminop_ree{ree_code}"
 
 
-#: One VminOP term: the LHS ``coefficient * variable`` text and the RHS text with
-#: a ``{pct}`` placeholder for the security-curve fraction of the REE it lands in.
-_VminopTerm = tuple[str, str]
-
-
 def _vminop_ree_terms(
     cadastro: pd.DataFrame,
     confhd_df: pd.DataFrame,
     id_map: NewaveIdMap,
     acc_prod: dict[int, float],
-) -> tuple[dict[int, list[_VminopTerm]], list[_VminopCoupling]]:
-    """Build every REE's VminOP terms, splitting the cascades the REEs couple.
+) -> tuple[dict[int, list[StoredEnergyShare]], list[_VminopCoupling]]:
+    """Build every REE's VminOP shares, splitting the cascades the REEs couple.
 
     The source model cuts a reservoir's cascade where it crosses into another
     REE (``codigo_usina_jusante == 0``) and accounts the water below the cut
     through the fictitious twin sharing the cut plant's posto, in the twin's
     REE. ``hydros.json`` instead links the cut plant straight to the real plant
-    below the twin, so cobre's ``@rho_acum_scaled_h{id}`` and
-    ``@earm_max_h{id}`` sum the whole cascade. For a reservoir whose cascade
-    reaches such a cut:
+    below the twin, so cobre's whole-cascade parameters would over-count the
+    reservoir's REE. A reservoir whose cascade reaches such a cut gets a
+    :func:`~cobre_bridge.core.stored_energy.cut_cascade_share` in its own REE
+    and, when its fictitious twin lies in another REE, a
+    :func:`~cobre_bridge.core.stored_energy.downstream_share` there, valued
+    with the first real plant on the twin's cascade. Both use the reservoir's
+    own useful volume: the twin does not operate, so its volume range (e.g. a
+    ``VOLMAX %`` on the twin in ``modif.dat``) is not used.
 
-    - in its own REE the coefficient is the sum of the integrated equivalent
-      productivities down to the cut plant, written as one
-      ``@rho_eq_scaled_h{c} * hydro_useful_volume_final(id)`` term per plant
-      ``c`` from the reservoir to the cut;
-    - when it has a fictitious twin in another REE, that REE gets the
-      reservoir's useful volume weighted by cobre's ``@rho_acum_scaled_h{id}``
-      of the first real plant on the twin's cascade, bounded by the
-      reservoir's own useful volume — the twin does not operate, so its
-      volume range (e.g. a ``VOLMAX %`` on the twin in ``modif.dat``) is not
-      used.
-
-    Every other reservoir keeps ``@rho_acum_scaled_h{id}`` and ``@earm_max_h{id}``.
-    Returns the terms by REE code (in plant-code order) and the split
-    reservoirs.
+    Every other reservoir gets a
+    :func:`~cobre_bridge.core.stored_energy.cascade_share`. Returns the
+    shares by REE code (in plant-code order) and the split reservoirs.
     """
     resolutions = resolve_cascade(confhd_df, cadastro)
     hydro_ree = {int(r["codigo_usina"]): int(r["ree"]) for _, r in confhd_df.iterrows()}
@@ -199,7 +194,7 @@ def _vminop_ree_terms(
             and hydro_ree.get(twin) != ree_code
         )
 
-    terms: dict[int, list[_VminopTerm]] = defaultdict(list)
+    terms: dict[int, list[StoredEnergyShare]] = defaultdict(list)
     couplings: list[_VminopCoupling] = []
     for code, ree_code in sorted(_build_hydro_to_ree(confhd_df, cadastro).items()):
         # The source model's stored energy (EARM) — and thus the VminOP expression —
@@ -216,8 +211,6 @@ def _vminop_ree_terms(
             hid = id_map.hydro_id(code)
         except KeyError:
             continue
-        variable = f"hydro_useful_volume_final({hid})"
-
         chain = [code]
         while not _crosses_ree(chain[-1], ree_code):
             downstream = resolutions[chain[-1]].downstream_code
@@ -227,22 +220,12 @@ def _vminop_ree_terms(
             chain.append(downstream)
 
         if not chain:
-            terms[ree_code].append(
-                (
-                    f"@{rho_acum_scaled_name(hid)} * {variable}",
-                    f"@{{pct}} * @{earm_max_name(hid)}",
-                )
-            )
+            terms[ree_code].append(cascade_share(hid))
             continue
 
-        for chain_code in chain:
-            own_name = rho_eq_scaled_name(id_map.hydro_id(chain_code))
-            terms[ree_code].append(
-                (
-                    f"@{own_name} * {variable}",
-                    f"{_useful(code)} * @{{pct}} * @{own_name}",
-                )
-            )
+        terms[ree_code].append(
+            cut_cascade_share(hid, _useful(code), [id_map.hydro_id(c) for c in chain])
+        )
 
         resolution = resolutions[code]
         twin = resolution.counterpart_fict
@@ -257,9 +240,8 @@ def _vminop_ree_terms(
             and _is_stored_energy_reservoir(cadastro, twin)
         )
         if lands:
-            ds_name = rho_acum_scaled_name(id_map.hydro_id(twin_downstream))
             terms[twin_ree].append(
-                (f"@{ds_name} * {variable}", f"{_useful(code)} * @{{pct}} * @{ds_name}")
+                downstream_share(hid, _useful(code), id_map.hydro_id(twin_downstream))
             )
         couplings.append(
             _VminopCoupling(
@@ -574,17 +556,19 @@ def convert_vminop_constraints(
 ) -> VminopResult | None:
     """Convert curva.dat VminOP constraints to Cobre generic constraints.
 
-    Each REE yields one constraint per stage with a curve value::
+    Each REE yields one constraint, bounded on every stage with a curve value::
 
-        Σ @rho_acum_scaled_h{id} * hydro_useful_volume_final(id)
-            >= Σ @pct_vminop_ree{code} * @earm_max_h{id}
+        Σ @rho_acum_mwh_h{id} * hydro_useful_volume_final(id)
+            >= @pct_vminop_ree{code} * (Σ @earm_max_mwh_h{id})
 
     i.e. useful stored energy (MWh) at least the curve fraction of the maximum
-    useful stored energy. Both coefficients are cobre's scaled *integrated*
-    accumulated productivity — the source model's stored-energy (EARM)
-    convention, not the gen = ρ·Q point ρ_acum. cobre moves the dead-volume
-    term of ``hydro_useful_volume_final`` onto the bound, so the row matches
-    the source model's ``pct·useful + dead`` bound on the absolute storage.
+    useful stored energy. The coefficients are cobre's *integrated*
+    accumulated productivity in MWh/hm³ — the source model's stored-energy
+    (EARM) convention, not the gen = ρ·Q point ρ_acum. cobre moves the
+    dead-volume term of ``hydro_useful_volume_final`` onto the bound, so the
+    row matches the source model's ``pct·useful + dead`` bound on the absolute
+    storage. The slack is ``per_unit``: the curve penalty is a price per MWh
+    of violation on every stage, whatever its hours.
 
     Only monthly-regulating reservoirs with usable storage participate in a REE's
     expression (see :func:`_is_stored_energy_reservoir`); run-of-river and
@@ -664,6 +648,7 @@ def convert_vminop_constraints(
     hydro_to_ree = _build_hydro_to_ree(confhd_df, cadastro)
     ree_terms, couplings = _vminop_ree_terms(cadastro, confhd_df, id_map, acc_prod)
     per_stage_parameters: dict[str, list[float]] = {}
+    expression_parameters: dict[str, str] = {}
 
     ree_hydros: dict[int, list[int]] = defaultdict(list)
     for code, ree_code in hydro_to_ree.items():
@@ -709,8 +694,8 @@ def convert_vminop_constraints(
             )
             continue
 
-        terms = ree_terms.get(ree_code, [])
-        if not terms:
+        shares = ree_terms.get(ree_code, [])
+        if not shares:
             vminop_skips.append(
                 _VminopSkip(
                     ree_code=ree_code,
@@ -721,13 +706,14 @@ def convert_vminop_constraints(
             continue
 
         pct_name = vminop_pct_name(ree_code)
-        expression = (
-            " + ".join(lhs for lhs, _ in terms)
-            + " >= "
-            + " + ".join(rhs.format(pct=pct_name) for _, rhs in terms)
-        )
+        expression = stored_energy_floor([(1.0, s) for s in shares], pct_name)
+        ree_parameters = share_parameters(shares)
         # Every hydro an ``@…_h{id}`` parameter names must be declared.
-        referenced_ids = [int(h) for h in re.findall(r"@\w+?_h(\d+)\b", expression)]
+        referenced_ids = [
+            int(h)
+            for text in (expression, *ree_parameters.values())
+            for h in re.findall(r"@\w+?_h(\d+)\b", text)
+        ]
         ree_name = ree_names.get(ree_code, str(ree_code))
         penalty = penalty_map.get(ree_code, 1000.0)
         if penalty <= 0.0:
@@ -781,28 +767,17 @@ def convert_vminop_constraints(
         if not pct_by_stage:
             continue
 
-        # TRACKED COBRE-GAP WORKAROUND (C12): cobre prices generic-constraint
-        # slack at ``penalty × stage hours`` (a power unit), but this row is in
-        # MWh, so a single R$/MWh penalty would be inflated ~730×. The stage hours
-        # vary (672–744 h) and the penalty is per constraint, so the REE is
-        # split into one constraint per stage, each priced at R$/MWh ÷ its own
-        # hours, which cobre's ``× hours`` restores to R$/MWh exactly.
-        for stage_id in sorted(pct_by_stage):
-            total = start_month - 1 + stage_id
-            stage_hours = _month_hours(start_year + total // 12, total % 12 + 1)
-            builder.add(
-                name=f"VminOP_{ree_name}_s{stage_id}",
-                description=(
-                    f"Minimum stored energy for REE {ree_code} ({ree_name}),"
-                    f" stage {stage_id}"
-                ),
-                expression=expression,
-                slack={"enabled": True, "penalty": penalty / stage_hours},
-                slots=[(stage_id, None, 0.0, None)],
-            )
+        builder.add(
+            name=f"VminOP_{ree_name}",
+            description=f"Minimum stored energy for REE {ree_code} ({ree_name})",
+            expression=expression,
+            slack=soft_slack(penalty, "per_unit"),
+            slots=[(stage_id, None, 0.0, None) for stage_id in sorted(pct_by_stage)],
+        )
         per_stage_parameters[pct_name] = [
             pct_by_stage.get(stage_id, 0.0) / 100.0 for stage_id in range(num_stages)
         ]
+        expression_parameters.update(ree_parameters)
         all_referenced_ids.update(referenced_ids)
 
     if couplings:
@@ -900,16 +875,12 @@ def convert_vminop_constraints(
         result.bounds.num_rows,
     )
 
-    _LOG.debug(
-        "VminOP split into one constraint per stage to price its MWh slack"
-        " in R$/MWh (cobre prices generic slack × stage hours)."
-    )
-
     return VminopResult(
         constraints_dict,
         result.bounds,
         sorted(all_referenced_ids),
         per_stage_parameters,
+        expression_parameters,
     )
 
 
@@ -1427,10 +1398,10 @@ def convert_electric_constraints(
         except (OSError, ValueError, KeyError):
             pass
 
-    slack_config: dict = (
-        {"enabled": True, "penalty": eletri_penalty}
+    slack_config = (
+        soft_slack(eletri_penalty, "per_hour")
         if eletri_penalty is not None and eletri_penalty > 0.0
-        else {"enabled": False}
+        else hard_slack()
     )
 
     allocator = allocator or ConstraintIdAllocator()
@@ -1994,7 +1965,7 @@ def convert_agrint_constraints(
             name=f"AGRINT_{group_id}",
             description=f"Exchange group constraint {group_id}",
             expression=expression,
-            slack={"enabled": False},
+            slack=hard_slack(),
             slots=slots,
         )
 
