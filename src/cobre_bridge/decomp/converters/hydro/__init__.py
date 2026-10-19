@@ -57,5 +57,8 @@ from cobre_bridge.decomp.converters.hydro.productivity import (
     convert_energy_productivity as convert_energy_productivity,
 )
 from cobre_bridge.decomp.converters.hydro.productivity import (
+    convert_hydro_energy_productivity as convert_hydro_energy_productivity,
+)
+from cobre_bridge.decomp.converters.hydro.productivity import (
     convert_production_models as convert_production_models,
 )
