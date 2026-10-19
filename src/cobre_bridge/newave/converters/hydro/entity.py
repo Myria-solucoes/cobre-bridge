@@ -12,6 +12,11 @@ import pandas as pd
 
 from cobre_bridge.cobre import schemas as cobre_schemas
 from cobre_bridge.core.diagnostics import Diagnostic, DiagnosticTable, Severity, emit
+from cobre_bridge.core.diversion import (
+    channel_flow_limit,
+    is_unlimited_flow,
+    unlimited_channels_diagnostic,
+)
 from cobre_bridge.core.hydro_units import build_mirror_unit_group, rated_capacity
 from cobre_bridge.core.pandas_utils import is_na
 from cobre_bridge.core.productivity import fpha_efficiency
@@ -77,10 +82,10 @@ def _diversion_channels(
     """``{plant code: hydros.json diversion channel}`` from ``CDESVIO`` records.
 
     Only a ``CDESVIO`` record declares a channel; the ``hidr.dat`` ``desvio``
-    code alone does not. The channel carries the record's maximum flow as
-    given. A record on a plant outside the case is ignored; one whose target
-    is outside the case, or that gives no maximum flow, converts to no channel
-    and is reported.
+    code alone does not. The channel carries the record's maximum flow, with
+    the source model's "no limit" value converted to no limit. A record on a
+    plant outside the case is ignored; one whose target is outside the case,
+    or that gives no maximum flow, converts to no channel and is reported.
     """
     records = read_diversion_records(case)
     if not records:
@@ -98,6 +103,7 @@ def _diversion_channels(
     in_case = set(id_map.all_hydro_codes)
     channels: dict[int, dict] = {}
     modeled: list[list[object]] = []
+    unlimited: list[tuple[int, str, int, str, float]] = []
     dropped: list[list[object]] = []
     for code, record in sorted(records.items()):
         if code not in in_case:
@@ -108,13 +114,24 @@ def _diversion_channels(
         elif record.max_flow_m3s is None:
             dropped.append([*row, "no maximum flow given"])
         else:
-            # TRACKED COBRE-GAP WORKAROUND (C21): cobre has no channel without a
-            # limit, so a "no limit" record value (9999999) is emitted as given.
+            limit = channel_flow_limit(record.max_flow_m3s)
             channels[code] = {
                 "downstream_id": id_map.hydro_id(record.target),
-                "max_flow_m3s": record.max_flow_m3s,
+                "max_flow_m3s": limit,
             }
-            flow = f"{record.max_flow_m3s:.2f}".rstrip("0").rstrip(".")
+            if is_unlimited_flow(record.max_flow_m3s):
+                unlimited.append(
+                    (
+                        code,
+                        name(code),
+                        record.target,
+                        name(record.target),
+                        record.max_flow_m3s,
+                    )
+                )
+            flow = (
+                "no limit" if limit is None else f"{limit:.2f}".rstrip("0").rstrip(".")
+            )
             modeled.append([*row, flow])
 
     columns = ["Code", "Name", "Target code", "Target name"]
@@ -136,6 +153,11 @@ def _diversion_channels(
                     justify=["right", "left", "right", "left", "right"],
                 ),
             ),
+            logger=_LOG,
+        )
+    if unlimited:
+        emit(
+            unlimited_channels_diagnostic(unlimited, source="modif.dat CDESVIO"),
             logger=_LOG,
         )
     if dropped:
