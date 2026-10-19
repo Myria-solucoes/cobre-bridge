@@ -1710,7 +1710,7 @@ class TestDeferralWarning:
     """The flat ``deferred at this milestone`` warning now names ONLY water
     travel time, and only when the deck actually carries a ``VI`` register.
     Boundary FCF is imported by default, reservoir evaporation is converted
-    (cobre >= 0.14's C11 fix), and windowed inflow inputs do not apply to the
+    and windowed inflow inputs do not apply to the
     external explicit tree the DECOMP path emits — so none of those are
     deferred, and a deck with no travel time emits no deferral warning at all.
     """

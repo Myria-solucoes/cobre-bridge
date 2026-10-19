@@ -2240,20 +2240,11 @@ def _evaporation_result_comparisons(
     Cobre id) as the second element instead of being silently dropped, with
     a WARNING diagnostic recording the count.
 
-    TRACKED COBRE-GAP WORKAROUND (C11): Cobre's own evaporation model
-    over-scales the volume it deposits on a sub-monthly stage -- it applies
-    (pre-fix) a full calendar month's worth of evaporation regardless of the
-    stage's actual duration (see
-    `decomp.converters.hydro.entity._evaporation_coefficients_mm`'s
-    docstring; its removal condition is
-    registered in the cobre repository's conversion-found-improvements
-    registry). The reconciliation below ONLY rescales the source model's own
-    hm³ volume into
-    a directly comparable m³/s flow via :func:`_hm3_to_m3s`; Cobre's
-    ``evaporation_m3s`` value is compared UNCHANGED. Any residual divergence
-    this surfaces on a sub-monthly stage is that known Cobre gap (C11), not a
-    conversion error -- it must not be "corrected away" by rescaling Cobre's
-    side to match.
+    The reconciliation below ONLY rescales the source model's own hm³ volume
+    into a directly comparable m³/s flow via :func:`_hm3_to_m3s`; Cobre's
+    ``evaporation_m3s`` value is compared UNCHANGED, so a divergence on a
+    sub-monthly stage is reported, never "corrected away" by rescaling
+    Cobre's side to match.
 
     Returns ``([], [])`` when *id_map* is ``None`` (deck unreadable). A
     missing/empty `dec_oper_evap` table, an absent ``evaporation_m3s`` column
@@ -2829,8 +2820,8 @@ def build_decomp_dataset(
     Unit reconciliations: REE EARM MWh -> MWmês via
     :data:`_EARM_MWH_TO_MWMES`, REE ENA (a stage-mean MW) -> MWmês via the
     stage's own hours, and evaporation hm³ -> m³/s via the stage's actual
-    hours -- the last surfaces a TRACKED COBRE-GAP WORKAROUND (C11) rather
-    than correcting it away (see `_evaporation_result_comparisons`).
+    hours, comparing Cobre's value unchanged (see
+    `_evaporation_result_comparisons`).
     ``nw_offset=1``: DECOMP's ``estagio`` is 1-based from the
     deck's first stage, so the offset is fixed at 1, not derived from the data.
 
@@ -2957,7 +2948,7 @@ def build_decomp_dataset(
 
     # --- evaporation comparison (hydro, "evaporation_m3s"). See
     # ``_evaporation_result_comparisons``'s docstring for the hm³ -> m³/s
-    # reconciliation and the TRACKED COBRE-GAP WORKAROUND (C11) it surfaces.
+    # reconciliation.
     evaporation_results, unmapped_evaporation = _evaporation_result_comparisons(
         decomp_dir,
         cobre_output_dir,

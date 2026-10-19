@@ -40,6 +40,7 @@ from cobre_bridge.core.penalties import (
     PINT,
     hydro_penalty_costs,
 )
+from cobre_bridge.core.run_config import SIMULATION_CUT_SET
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -127,6 +128,7 @@ def convert_config(case: DecompCase) -> dict:
         "simulation": {
             "enabled": True,
             "selection": {"method": "enumerated"},
+            "cut_set": SIMULATION_CUT_SET,
         },
     }
 
