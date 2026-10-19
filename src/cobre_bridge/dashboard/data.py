@@ -1053,7 +1053,7 @@ class GenericConstraintData:
 
     ``resolved`` is the comparison-ready view (see
     :func:`cobre_bridge.cobre.constraint_expr.resolve_generic_constraints`):
-    coefficients and bounds read from the run's echo. F3 shape:
+    coefficients and bounds read from the run's echo. Sense-free shape:
     ``constraints`` dicts carry no ``sense`` key, and ``bounds`` has nullable
     ``bound_lower``/``bound_upper`` endpoint columns instead of a single
     ``bound`` column (see
