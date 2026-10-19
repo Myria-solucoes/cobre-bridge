@@ -250,7 +250,9 @@ class TestConvertPumpingStations:
         case = MagicMock()
         case.horizon.start_year = 2025
         case.horizon.start_month = 1
-        type(case).pumping_related_codes = PropertyMock(return_value=frozenset({10, 20}))
+        type(case).pumping_related_codes = PropertyMock(
+            return_value=frozenset({10, 20})
+        )
 
         id_map = MagicMock()
         id_map.bus_id.return_value = 0
