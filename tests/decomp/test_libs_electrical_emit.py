@@ -16,7 +16,10 @@ import pandas as pd
 import pytest
 
 from cobre_bridge.core import diagnostics as dx
-from cobre_bridge.core.generic_constraint_builder import ConstraintIdAllocator
+from cobre_bridge.core.generic_constraint_builder import (
+    ConstraintIdAllocator,
+    soft_slack,
+)
 from cobre_bridge.decomp.converters.libs_electrical import (
     AssembledBound,
     AvailablePower,
@@ -545,7 +548,7 @@ def test_emit_reserve_a3_negative_cap_stays_feasible_via_slack() -> None:
 
     assert result.generic is not None
     [constraint] = result.generic.constraints
-    assert constraint["slack"] == {"enabled": True, "penalty": 999.0}
+    assert constraint["slack"] == soft_slack(999.0, "per_hour")
     rows = result.generic.bounds.to_pylist()
     assert len(rows) == 1
     assert rows[0]["bound_upper"] == -100.0
