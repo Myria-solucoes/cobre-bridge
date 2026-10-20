@@ -21,6 +21,9 @@ from cobre_bridge.decomp.converters.hydro.bounds import (
     _ITAIPU_CODE as _ITAIPU_CODE,
 )
 from cobre_bridge.decomp.converters.hydro.bounds import (
+    ITAIPU_GROUP_BY_FREQUENCY_HZ as ITAIPU_GROUP_BY_FREQUENCY_HZ,
+)
+from cobre_bridge.decomp.converters.hydro.bounds import (
     _build_split_unit_groups as _build_split_unit_groups,
 )
 from cobre_bridge.decomp.converters.hydro.bounds import (
@@ -31,6 +34,9 @@ from cobre_bridge.decomp.converters.hydro.bounds import (
 )
 from cobre_bridge.decomp.converters.hydro.bounds import (
     convert_itaipu_frequency_min_generation as convert_itaipu_frequency_min_generation,
+)
+from cobre_bridge.decomp.converters.hydro.bounds import (
+    split_plant_group_id as split_plant_group_id,
 )
 from cobre_bridge.decomp.converters.hydro.entity import (
     _downstream_operated as _downstream_operated,
@@ -55,6 +61,9 @@ from cobre_bridge.decomp.converters.hydro.entity import (
 )
 from cobre_bridge.decomp.converters.hydro.productivity import (
     convert_energy_productivity as convert_energy_productivity,
+)
+from cobre_bridge.decomp.converters.hydro.productivity import (
+    convert_hydro_energy_productivity as convert_hydro_energy_productivity,
 )
 from cobre_bridge.decomp.converters.hydro.productivity import (
     convert_production_models as convert_production_models,

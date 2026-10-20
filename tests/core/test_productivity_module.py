@@ -20,7 +20,7 @@ from cobre_bridge.core.productivity import (
 )
 
 # cobre's phi = K * eta * q * h_net with K = g/1000 (mirrors the module's
-# private _GRAVITY_MW_FACTOR — pinned here rather than imported, per the D2
+# private _GRAVITY_MW_FACTOR — pinned here rather than imported, per the
 # unit contract in fpha_efficiency's docstring).
 _K = 9.81e-3
 
