@@ -150,8 +150,9 @@ def _vminop_ree_shares(
     model's stored energy does, including the plants below a cut into another
     REE. ``hydros.json`` links the cut plant to the real plant below its
     fictitious twin, so cobre's accumulated productivity already spans that
-    cascade. Never split it at the REE boundary the way DECOMP's RHE does
-    (:func:`~cobre_bridge.core.stored_energy.cut_cascade_share`): that moves
+    cascade. Never split it at the REE boundary the way DECOMP's RHE does for
+    a reservoir with an ``EZ`` record
+    (:func:`~cobre_bridge.decomp.converters.rhe_shares.build_rhe_shares`): that moves
     stored energy between REEs, so water held upstream in one REE meets
     another REE's curve.
     """
