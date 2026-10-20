@@ -60,6 +60,9 @@ from cobre_bridge.decomp.converters.hydro.entity import (
     read_hidr as read_hidr,
 )
 from cobre_bridge.decomp.converters.hydro.productivity import (
+    _stored_energy_productivity_mw_per_m3s as _stored_energy_productivity_mw_per_m3s,
+)
+from cobre_bridge.decomp.converters.hydro.productivity import (
     convert_energy_productivity as convert_energy_productivity,
 )
 from cobre_bridge.decomp.converters.hydro.productivity import (

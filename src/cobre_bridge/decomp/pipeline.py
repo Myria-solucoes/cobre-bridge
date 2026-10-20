@@ -62,6 +62,7 @@ from cobre_bridge.decomp.converters import (
 )
 from cobre_bridge.decomp.converters import ncs as ncs_conv
 from cobre_bridge.decomp.converters import network as network_conv
+from cobre_bridge.decomp.converters import rhe_shares as rhe_shares_conv
 from cobre_bridge.decomp.converters import thermal as thermal_conv
 from cobre_bridge.decomp.converters import travel_time as travel_time_conv
 from cobre_bridge.decomp.converters.scalar_parameters import (
@@ -1752,6 +1753,7 @@ def _emit_and_write(
         census=census,
         effective=effective,
         hydro_to_ree=hydro_to_ree,
+        ez_fractions=rhe_shares_conv.read_ez_fractions(dadger),
         allocator=allocator,
     )
     if rhe_generics is not None:
