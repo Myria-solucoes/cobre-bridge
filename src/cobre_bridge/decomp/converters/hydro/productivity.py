@@ -13,6 +13,8 @@ from cobre_bridge.core.productivity import equivalent_productivity_from_coeffs
 from cobre_bridge.decomp.converters.cadastro.effective import is_reservoir
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
     from cobre_bridge.decomp.converters.cadastro import EffectiveCadastro
     from cobre_bridge.decomp.id_map import DecompIdMap
 
@@ -200,45 +202,55 @@ def convert_hydro_energy_productivity(
     )
 
 
+def outage_stage_model() -> dict:
+    """The stage model of an FPHA plant whose turbined-flow limit is zero: the
+    source model builds it no production-function planes."""
+    return {"model": "constant_productivity", "productivity_mw_per_m3s": 0.0}
+
+
 def convert_production_models(
     id_map: DecompIdMap,
-    fpha_configs: dict[int, dict] | None = None,
-    reference_volumes: dict[int, dict] | None = None,
+    stage_models: Mapping[int, Sequence[dict]] | None = None,
 ) -> dict:
     """Per-plant production-model selection.
 
-    A plant in *fpha_configs* (``{code: fpha_config}``, from the pipeline via
-    :func:`cobre_bridge.decomp.converters.fpha.fitting_window`) is emitted as ``model:
-    "fpha"`` — cobre fits the production function from the plant geometry
-    (``hydro_geometry.parquet``) + tailrace families (``tailrace_curves.parquet``)
-    over the config's ``fitting_window`` — with its ``reference_volume`` (from
-    *reference_volumes*, the initial-volume anchor) setting the FPHA reference /
-    backwater level. Every other operated plant keeps ``constant_productivity``,
-    its ρ_eq riding in ``hydro_energy_productivity.parquet``. *fpha_configs* and
-    *reference_volumes* are pre-built by the pipeline so this module needs no
-    import from :mod:`cobre_bridge.decomp.converters.fpha` (which imports it).
+    A plant in *stage_models* (``{code: model entry per study stage}``, built by
+    the pipeline: an ``fpha`` entry with its ``fpha_config`` and
+    ``reference_volume``, or :func:`outage_stage_model`) gets one stage range per
+    run of equal entries, the last open-ended. Every other operated plant keeps
+    one open-ended ``constant_productivity`` range, its ρ_eq riding in
+    ``hydro_energy_productivity.parquet``.
     """
-    fpha_configs = fpha_configs or {}
-    reference_volumes = reference_volumes or {}
+    stage_models = stage_models or {}
     models: list[dict] = []
     for code in id_map.hydro_codes:
-        stage_range: dict = {"start_stage_id": 0, "end_stage_id": None}
-        if code in fpha_configs:
-            stage_range["model"] = "fpha"
-            stage_range["fpha_config"] = fpha_configs[code]
-            reference_volume = reference_volumes.get(code)
-            if reference_volume is not None:
-                stage_range["reference_volume"] = reference_volume
-        else:
-            stage_range["model"] = "constant_productivity"
         models.append(
             {
                 "hydro_id": id_map.hydro_id(code),
                 "selection_mode": "stage_ranges",
-                "stage_ranges": [stage_range],
+                "stage_ranges": _stage_ranges(
+                    stage_models.get(code, [{"model": "constant_productivity"}])
+                ),
             }
         )
     return {
         "$schema": cobre_schemas.schema_url_for("system/hydro_production_models.json"),
         "production_models": models,
     }
+
+
+def _stage_ranges(per_stage: Sequence[dict]) -> list[dict]:
+    ranges: list[dict] = []
+    for stage_id, entry in enumerate(per_stage):
+        if ranges and ranges[-1]["entry"] == entry:
+            ranges[-1]["end"] = stage_id
+        else:
+            ranges.append({"start": stage_id, "end": stage_id, "entry": entry})
+    return [
+        {
+            "start_stage_id": r["start"],
+            "end_stage_id": None if i == len(ranges) - 1 else r["end"],
+            **r["entry"],
+        }
+        for i, r in enumerate(ranges)
+    ]
