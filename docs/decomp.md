@@ -71,6 +71,12 @@ instead, each with its own slack at the same penalty. DECOMP prices every
 order or numbers, so Cobre then makes the same choice. The conversion reports
 each such pair as a warning.
 
+Incremental inflows are converted as the inflow file gives them, negative
+values included. DECOMP reports a negative incremental inflow as zero in its
+operation output; Cobre's water balance removes that water unless its priced
+inflow slack adds it back. The conversion lists every negative value as a
+warning.
+
 Some deck features have no Cobre counterpart yet, or are held back behind a
 cobre issue. None is dropped silently: `check decomp` lists them per deck,
 `convert decomp` reports each as a warning naming the affected records, and
