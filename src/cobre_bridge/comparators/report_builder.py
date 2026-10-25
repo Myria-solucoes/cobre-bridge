@@ -29,6 +29,7 @@ from cobre_bridge.comparators.charts import (
     hydro_slack_per_bus_chart,
     immediate_cost_chart,
     line_summary_chart,
+    net_of_penalties_table,
     other_costs_chart,
     overview_metrics,
     performance_fwd_bwd_split_chart,
@@ -748,6 +749,11 @@ def build_comparison_report(
             single=True,
         )
     )
+    net_table = net_of_penalties_table(
+        nw_conv, cb_conv, nw_costs, cobre_costs, reference_label
+    )
+    if net_table:
+        overview_parts.append(chart_grid([wrap_chart(net_table)], single=True))
     tab_contents["tab-overview"] = "\n".join(overview_parts)
 
     # --- System tab ---

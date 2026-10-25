@@ -924,7 +924,7 @@ def _run_cadastro_pipeline(
         "cobre_bridge.decomp.pipeline.Vazoes.read": object(),
         "cobre_bridge.decomp.pipeline.scenarios_conv.terminal_fan_probabilities": [1.0],
         "cobre_bridge.decomp.pipeline.config_conv.convert_config": {},
-        "cobre_bridge.decomp.pipeline.network_conv._bus_deficit_costs": {},
+        "cobre_bridge.decomp.pipeline.network_conv.bus_deficit_costs": {},
         "cobre_bridge.decomp.pipeline"
         ".hydro_conv.convert_energy_productivity": productivity_table,
         "cobre_bridge.decomp.pipeline.network_conv.convert_buses": {"buses": []},
