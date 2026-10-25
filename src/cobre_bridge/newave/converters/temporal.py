@@ -19,7 +19,7 @@ from cobre_bridge.core.penalties import INFLOW_NON_NEGATIVITY_METHOD
 from cobre_bridge.core.run_config import SIMULATION_CUT_SET
 from cobre_bridge.core.season_calendar import block_names, monthly_season_definitions
 from cobre_bridge.newave.case import NewaveCase
-from cobre_bridge.newave.horizon import study_horizon
+from cobre_bridge.newave.horizon import stage_dates_for, study_horizon
 from cobre_bridge.newave.id_map import NewaveIdMap
 
 logger = logging.getLogger(__name__)
@@ -41,6 +41,49 @@ def _month_hours(year: int, month: int) -> float:
     """Total number of hours in the given calendar month."""
     days_in_month = calendar.monthrange(year, month)[1]
     return float(days_in_month * 24)
+
+
+def block_fractions(case: NewaveCase) -> list[tuple[float, ...]]:
+    """Each stage's block durations as fractions of its month, study and
+    post-study stages in order.
+
+    ``patamar.dat`` lists the study years; a later year repeats the last listed
+    year, and a block with no duration takes an equal share, with a warning.
+    """
+    df_pat = case.patamar.duracao_mensal_patamares
+    num_patamares: int = case.patamar.numero_patamares or 1
+    lookup: dict[tuple[int, int, int], float] = {}
+    last_year: int | None = None
+    if df_pat is not None and not df_pat.empty:
+        for _, row in df_pat.iterrows():
+            cal_year = int(row["data"].year)
+            lookup[(cal_year, int(row["data"].month), int(row["patamar"]))] = float(
+                row["valor"]
+            )
+            if last_year is None or cal_year > last_year:
+                last_year = cal_year
+
+    fractions: list[tuple[float, ...]] = []
+    for stage_date in stage_dates_for(case.horizon):
+        year, month = stage_date.year, stage_date.month
+        stage: list[float] = []
+        for pat_idx in range(1, num_patamares + 1):
+            fraction = lookup.get((year, month, pat_idx))
+            if fraction is None and last_year is not None:
+                fraction = lookup.get((last_year, month, pat_idx))
+            if fraction is None:
+                fraction = 1.0 / num_patamares
+                logger.warning(
+                    "No patamar duration for year %d, calendar month %d, "
+                    "patamar %d; using equal fraction %.4f",
+                    year,
+                    month,
+                    pat_idx,
+                    fraction,
+                )
+            stage.append(fraction)
+        fractions.append(tuple(stage))
+    return fractions
 
 
 def convert_stages(case: NewaveCase, id_map: NewaveIdMap) -> dict:  # noqa: ARG001
@@ -172,28 +215,8 @@ def convert_stages(case: NewaveCase, id_map: NewaveIdMap) -> dict:  # noqa: ARG0
             const_lambda,
         )
 
-    # Build block duration lookup: {(month, patamar) -> fraction}
-    # Patamar.duracao_mensal_patamares columns: data (datetime), patamar (int),
-    # valor (float, fraction of month).
-    df_pat = patamar.duracao_mensal_patamares
-    num_patamares: int = patamar.numero_patamares or 1
-
-    # Index the patamar DataFrame by (year, calendar month, patamar index).
-    # The ``data`` column is a datetime; we need year and calendar month.
-    # Build a dict {(year, month_1_to_12, patamar_1_based) -> fraction}.
-    pat_lookup: dict[tuple[int, int, int], float] = {}
-    pat_last_year: int | None = None
-    if df_pat is not None and not df_pat.empty:
-        for _, row in df_pat.iterrows():
-            cal_year = int(row["data"].year)
-            cal_month = int(row["data"].month)
-            pat_idx = int(row["patamar"])
-            fraction = float(row["valor"])
-            pat_lookup[(cal_year, cal_month, pat_idx)] = fraction
-            if pat_last_year is None or cal_year > pat_last_year:
-                pat_last_year = cal_year
-
-    names = block_names(num_patamares)
+    fractions = block_fractions(case)
+    names = block_names(patamar.numero_patamares or 1)
 
     # ------------------------------------------------------------------
     # Build study stages (IDs 0 .. N-1).
@@ -215,29 +238,10 @@ def convert_stages(case: NewaveCase, id_map: NewaveIdMap) -> dict:  # noqa: ARG0
         end_date = _month_end_date(year, month)
         total_hours = _month_hours(year, month)
 
-        blocks: list[dict] = []
-        for pat_idx in range(1, num_patamares + 1):
-            fraction = pat_lookup.get((year, month, pat_idx))
-            if fraction is None and pat_last_year is not None:
-                fraction = pat_lookup.get((pat_last_year, month, pat_idx))
-            if fraction is None:
-                fraction = 1.0 / num_patamares
-                logger.warning(
-                    "No patamar duration for year %d, calendar month %d, "
-                    "patamar %d; using equal fraction %.4f",
-                    year,
-                    month,
-                    pat_idx,
-                    fraction,
-                )
-            block_hours = fraction * total_hours
-            blocks.append(
-                {
-                    "id": pat_idx - 1,
-                    "name": names[pat_idx - 1],
-                    "hours": block_hours,
-                }
-            )
+        blocks = [
+            {"id": block, "name": names[block], "hours": fraction * total_hours}
+            for block, fraction in enumerate(fractions[stage_id])
+        ]
 
         # risk_measure per stage.  ``dger.cvar``: 0 → expectation; 1 → one constant
         # CVaR(alpha,lambda) on every stage (reuse ``_cvar_constant``); 2 → per-stage
