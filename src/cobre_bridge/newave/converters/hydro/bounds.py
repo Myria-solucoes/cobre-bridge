@@ -28,10 +28,7 @@ from cobre_bridge.core.productivity import (
 from cobre_bridge.core.tolerances import BIG_M
 from cobre_bridge.core.turbine import head_limited_flow
 from cobre_bridge.newave.case import NewaveCase
-from cobre_bridge.newave.converters.hydro.geometry import (
-    _expansion_configs,
-    _read_volref_saz,
-)
+from cobre_bridge.newave.converters.hydro.geometry import _expansion_configs
 from cobre_bridge.newave.converters.hydro.overrides import (
     _apply_permanent_overrides,
     _extract_temporal_overrides,
@@ -43,6 +40,9 @@ from cobre_bridge.newave.converters.hydro.productivity import (
     _compute_productivity,
     _per_stage_productivities,
     _total_study_stages,
+)
+from cobre_bridge.newave.converters.hydro.reference_volumes import (
+    seasonal_useful_volumes,
 )
 from cobre_bridge.newave.filling import (
     exph_unit_rows,
@@ -348,7 +348,7 @@ def convert_turbined_bounds_head_corrected(
         for code, overrides in temporal_overrides.items()
         if any(o["type"] in ("CFUGA", "CMONT") for o in overrides)
     }
-    seasonal_volref = _read_volref_saz(case)
+    seasonal_volref = seasonal_useful_volumes(case)
     expansion = _expansion_configs(case, cadastro)
     if not drop_overrides and not seasonal_volref and not expansion:
         return None
