@@ -31,18 +31,19 @@ from cobre_bridge.comparators.fpha import (
     FPHA_METRICS_SCHEMA,
     FPHA_SPILL_SCHEMA,
     FPHA_SURFACE_SCHEMA,
+    cobre_plane_arrays,
     dense_grid,
 )
-from cobre_bridge.comparators.model import build_results_summary
+from cobre_bridge.comparators.model import ResultComparison, build_results_summary
 from cobre_bridge.core.diagnostics import Diagnostic, Severity, emit
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Iterable, Mapping, Sequence
 
     import pandas as pd
 
-    from cobre_bridge.comparators.model import PercentileData, ResultComparison
-    from cobre_bridge.comparators.newave.alignment import EntityAlignment, HydroEntity
+    from cobre_bridge.comparators.model import PercentileData
+    from cobre_bridge.comparators.newave.alignment import EntityAlignment
 
 _LOG = logging.getLogger(__name__)
 
@@ -366,6 +367,11 @@ def build_results_dataset(
         if pct.fpha_surface is not None
         else pl.DataFrame(),
         fpha_spill=pct.fpha_spill if pct.fpha_spill is not None else pl.DataFrame(),
+        fpha_split=pct.fpha_split,
+        fpha_fit_inputs=pct.fpha_fit_inputs,
+        fpha_slices=pct.fpha_slices,
+        tie_share=pct.tie_share,
+        hydro_masked=pct.hydro_masked,
         # --- Constraints / Performance tab inputs ---
         gc_constraints=pct.gc_constraints,
         gc_bounds=pct.gc_bounds,
@@ -1138,6 +1144,25 @@ def plant_max_reldiff_ranking(
     return max_rd, plant_keys, medians
 
 
+def with_masked_hydro_rows(
+    results: Sequence[ResultComparison], masked: pl.DataFrame
+) -> list[ResultComparison]:
+    """*results* with each hydro variable *masked* carries taken from *masked*.
+
+    *masked* holds :class:`ResultComparison`-shaped rows averaged over the
+    points that are not ties. For every variable it carries, the hydro rows
+    of that variable are replaced by its rows, so a (plant, stage) whose
+    points are all ties drops out of that variable. Other rows pass through.
+    """
+    if masked.is_empty():
+        return list(results)
+    variables = set(masked["variable"].unique().to_list())
+    kept = [
+        r for r in results if r.entity_type != "hydro" or r.variable not in variables
+    ]
+    return kept + [ResultComparison(**row) for row in masked.iter_rows(named=True)]
+
+
 def _tidy_one_percentile_frame(
     entity_type: str,
     frame: pl.DataFrame,
@@ -1300,7 +1325,8 @@ def build_fpha_comparison(
     nw_planes: pl.DataFrame | None,
     nw_grid: pl.DataFrame | None,
     cb_planes: pl.DataFrame | None,
-    hydros: Sequence[HydroEntity],
+    code_to_cobre: Mapping[int, int],
+    names: Mapping[int, str],
     *,
     spill_n: int = 15,
 ) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
@@ -1311,7 +1337,9 @@ def build_fpha_comparison(
     ``fpha_eco``, at ``S = 0``); single-volume (run-of-river) plants collapse the
     ``V`` axis to one point, leaving a ``Q`` curve. Both envelopes are evaluated at
     the same nodes — the model's real resolution, not a synthetic densification.
-    The source model's k-th period aligns to Cobre stage ``k``.
+    The source model's k-th period aligns to Cobre stage ``k``. The source
+    planes' volume coefficient applies above the grid's ``volume_offset_hm3``
+    when the grid carries that column, above ``v_min_hm3`` otherwise.
 
     Args:
         nw_planes: The source model's planes (from ``read_fpha_planes``), or
@@ -1320,7 +1348,8 @@ def build_fpha_comparison(
             ``None`` — supplies the ``(V, Q)`` nodes and the useful-volume
             reference.
         cb_planes: Cobre's planes (from ``read_cobre_fpha_planes``), or ``None``.
-        hydros: Aligned hydro entities pairing source codes to Cobre ids/names.
+        code_to_cobre: Source plant code to Cobre hydro id.
+        names: Plant name by Cobre hydro id.
         spill_n: Sample count for the spillage slice (a synthetic ``S`` sweep,
             independent of the ``(V, Q)`` fitting grid).
 
@@ -1347,8 +1376,7 @@ def build_fpha_comparison(
     ):
         return empty
 
-    code_to_cobre = {h.newave_code: h.cobre_id for h in hydros}
-    name_of = {h.cobre_id: h.name for h in hydros}
+    name_of = dict(names)
 
     periods = sorted({int(p) for p in nw_planes.get_column("periodo").to_list()})
     stage_of = {p: i for i, p in enumerate(periods)}
@@ -1390,6 +1418,7 @@ def build_fpha_comparison(
 
         g = grid_row.row(0, named=True)
         v_min = float(g["v_min_hm3"])
+        offset = float(g.get("volume_offset_hm3", v_min))
         v_max = float(g["v_max_hm3"])
         q_min = float(g["q_min_m3s"])
         q_max = float(g["q_max_m3s"])
@@ -1405,8 +1434,8 @@ def build_fpha_comparison(
         ss = np.zeros_like(vv)
 
         nw_arr = _plane_arrays(nw_sub, "fator_correcao")
-        cb_arr = _plane_arrays(cb_sub, "kappa")
-        nw_gh = dense_grid(*nw_arr, vv, qq, ss, volume_offset=v_min)
+        cb_arr = cobre_plane_arrays(cb_sub)
+        nw_gh = dense_grid(*nw_arr, vv, qq, ss, volume_offset=offset)
         cb_gh = dense_grid(*cb_arr, vv, qq, ss, volume_offset=0.0)
 
         flat_v = vv.reshape(-1)
@@ -1426,7 +1455,7 @@ def build_fpha_comparison(
         )
         v_fix = np.full_like(s_axis, v_max)
         q_fix = np.full_like(s_axis, q_max)
-        nw_sp = dense_grid(*nw_arr, v_fix, q_fix, s_axis, volume_offset=v_min)
+        nw_sp = dense_grid(*nw_arr, v_fix, q_fix, s_axis, volume_offset=offset)
         cb_sp = dense_grid(*cb_arr, v_fix, q_fix, s_axis, volume_offset=0.0)
         ns = s_axis.size
         sp_cid.append(np.full(ns, cobre_id, dtype=np.int64))

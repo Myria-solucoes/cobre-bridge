@@ -36,6 +36,9 @@ from cobre_bridge.comparators.charts.costs import (
     immediate_cost_chart as immediate_cost_chart,
 )
 from cobre_bridge.comparators.charts.costs import (
+    net_of_penalties_table as net_of_penalties_table,
+)
+from cobre_bridge.comparators.charts.costs import (
     other_costs_chart as other_costs_chart,
 )
 from cobre_bridge.comparators.charts.costs import (
@@ -46,6 +49,15 @@ from cobre_bridge.comparators.charts.fpha import (
 )
 from cobre_bridge.comparators.charts.fpha import (
     fpha_metrics_table as fpha_metrics_table,
+)
+from cobre_bridge.comparators.charts.fpha import (
+    fpha_slice_chart as fpha_slice_chart,
+)
+from cobre_bridge.comparators.charts.fpha import (
+    fpha_split_table as fpha_split_table,
+)
+from cobre_bridge.comparators.charts.fpha import (
+    tie_share_table as tie_share_table,
 )
 from cobre_bridge.comparators.charts.hydro import (
     cobre_aggregate_chart as cobre_aggregate_chart,

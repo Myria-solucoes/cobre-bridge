@@ -10,7 +10,8 @@ in the [CLI reference](cli.md).
 
 `SRC` is the deck directory. `caso.dat` names the revision (`rv0`, `rv1`, and
 so on) and the revision's index file names that revision's data files:
-`dadger.rvN` and `vazoes.rvN`, the shared `hidr.dat` registry, `dadgnl.rvN`
+`dadger.rvN` and `vazoes.rvN`, the shared `hidr.dat` registry, the
+long-term mean inflows `mlt.dat` when the index lists them, `dadgnl.rvN`
 when the deck has fuel-constrained thermals, and the cut files when the deck
 declares them. The deck is parsed once and shared by every converter.
 
@@ -76,6 +77,51 @@ values included. DECOMP reports a negative incremental inflow as zero in its
 operation output; Cobre's water balance removes that water unless its priced
 inflow slack adds it back. The conversion lists every negative value as a
 warning.
+
+A plant's turbined flow is capped stage by stage at the limit DECOMP computes
+before the optimization. The rule:
+
+- The units' rated flow is corrected for the head at the stage's initial
+  storage. The tailrace level rises with the flow, so the flow is iterated
+  until head and flow agree.
+- The result is scaled by the `MP` maintenance and `FD` availability factors.
+  It never exceeds the flow that produces the plant's available power.
+- A plant that cannot hold back its stage inflow turbines up to that inflow
+  when it exceeds the head-limited flow. This covers a run-of-river plant and
+  a reservoir without enough free room. The inflow is the deck's, negative
+  values included; the terminal stage takes the probability-weighted mean of
+  its scenarios.
+- The tailrace curves come from `polinjus`. For a deck without that file they
+  come from the `hidr.dat` downstream polynomials. That path follows the same
+  rule but has not been checked against a DECOMP run.
+- Itaipu's limit is plant-wide: its two frequency groups share the
+  head-limited flow, and each group is also held to its own available power.
+- DECOMP raises the tailrace level by the lateral inflows of `VL` and `VU`
+  registers; the conversion leaves them out. A plant with such a register,
+  such as Itaipu or Belo Monte, may therefore turbine slightly more than
+  DECOMP allows.
+- `AC ALTEFE` overrides of the rated head are not applied; the conversion
+  warns about them.
+
+Cobre fits the planes of the hydro production function (FPHA) itself. These
+inputs follow DECOMP:
+
+- Each stage is fitted over DECOMP's volume window: the `UH` initial storage,
+  as a percentage of the stage's useful volume, minus a reduction and plus an
+  increase, within the stage's storage limits. Both are 20 % of useful volume
+  on a weekly stage and 50 % on a monthly one unless `FP` records set them,
+  in % of useful volume or in hm³, from their stage on. A run-of-river plant
+  is fitted at its reference volume. The turbined-flow window and point
+  counts of `FP` are not converted; the conversion warns when a record sets
+  them away from DECOMP's defaults.
+- The spillage range of the fit is twice the largest monthly long-term mean
+  inflow in `mlt.dat` of the plant's station (`AC NUMPOS` included). A plant
+  on the artificial station 300, or on a station with a zero mean, is fitted
+  over twice its maximum turbined flow, as in DECOMP. A deck without `mlt.dat`
+  gets that fallback for every plant, and the conversion warns.
+- A stage where the plant's turbined limit is zero, for example with every
+  machine under maintenance, gets a zero constant productivity in place of
+  the production function. DECOMP builds no planes for such a stage.
 
 Some deck features have no Cobre counterpart yet, or are held back behind a
 cobre issue. None is dropped silently: `check decomp` lists them per deck,
@@ -181,11 +227,60 @@ the deck again.
 
 `compare decomp DECOMP_DIR COBRE_OUTPUT_DIR` reads the deck plus the
 `dec_oper_*.csv` operation tables directly in `DECOMP_DIR`, and Cobre's
-`output/` directory. Two caveats apply to the report:
+`output/` directory. Percentile bands are omitted, or labelled low-N, when the
+deterministic tree has too few scenarios to report a spread without
+synthesizing it.
 
-- The overview's net-present-value cost cards compare DECOMP's undiscounted
-  nominal costs with Cobre's time-discounted costs. DECOMP's cost report
-  carries no per-stage discount factor and the bridge does not invent one, so
-  the two totals are not on the same time-value footing.
-- Percentile bands are omitted, or labelled low-N, when the deterministic tree
-  has too few scenarios to report a spread without synthesizing it.
+The overview's cost breakdown is at present value on both sides. DECOMP's
+cost report prints each stage's parcels at their nominal value and the stage
+total at both nominal and present value, so each parcel is discounted by that
+stage's ratio of the two. The report prints no deficit parcel: the deficit is
+priced from `dec_oper_sist` and the deck's `CD` costs. What is left of the
+stage total after the printed parcels and the deficit is the penalty on the
+constraint slacks the report does not itemize, such as `RHQ`, `RHV`, `RHE`,
+evaporation and irrigation; it is shown as one unitemized-slack category. The
+two turbining parcels are the price DECOMP puts on turbined water and compare
+with Cobre's turbined cost. DECOMP's stage total counts the take-or-pay
+minimum of an export contract at its price as a cost, and only the energy
+above it as revenue. Cobre counts every exported MWh as revenue, so on a deck
+with an export minimum the two contract costs differ by twice the minimum's
+value; the comparison logs that amount.
+
+Below the convergence chart, a table gives each model's final lower bound with
+and without its expected constraint-violation penalties. One slack priced far
+above any real cost, such as a pair of conflicting constraints, can dominate a
+model's bound; the bounds net of penalties compare the operation both models
+price. The table names the categories it counts and any cost category it
+cannot classify. `compare newave` shows the same table.
+
+On the Energy Balance tab, the ANDE load of the deck's `RI` register is added
+to the demand of Itaipu's submarket, as the conversion adds it to that bus:
+DECOMP's `dec_oper_sist` demand leaves it out, while its hydro generation
+includes the Itaipu output that serves it. DECOMP prints the system's natural
+inflow energy (ENA) as energy over the stage, in MWmês of 730 hours; the
+chart converts it to the stage's mean MW, the unit of Cobre's series.
+
+The Productivity tab compares the two models at the operating points each one
+reached, per plant, stage, scenario and block. It reads DECOMP's fitted planes
+(`avl_cortesfpha_dec.rvN`) and fit windows (`eco_fpha_.rvN`). For each plant
+and stage it splits the gap between the two realized productivities into a
+part from the fitted planes, Cobre's planes evaluated at DECOMP's operating
+points, and a part from where Cobre operates. A chart draws generation against
+turbined flow at DECOMP's mean operating point for both models' planes and the
+exact production function, beside each model's fit inputs and head components.
+The exact function follows DECOMP's conventions: the forebay at the stage's
+mean storage, the tailrace at the plant's outflow plus the lateral flows of its
+`VU` and `VA` registers, read between `polinjus` families at the downstream
+plant's forebay, and the losses of `hidr.dat`. DECOMP holds the `VA` share at
+the first stage's inflow, and so does the comparison. When the run wrote
+`dec_desvfpha.rvN`, the table also gives the largest gap between that function
+and DECOMP's own printed value.
+
+A point where the plant's energy or stored water is worth nothing in either
+model is a tie: DECOMP's marginal cost is zero, Cobre's spot price is zero at
+every bus the plant feeds, or Cobre's water value is zero, all at DECOMP's
+two-decimal print resolution. Either model may then turbine or spill at no
+cost. Ties are left out of the split and of the per-plant ranking of
+generation, turbined flow, productivity, spillage and outflow on the Hydro
+Plant Details tab, and the tab reports their share per stage. DECOMP prints no
+water value, so on its side a tie is detected through the marginal cost only.
