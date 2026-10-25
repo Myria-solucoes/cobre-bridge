@@ -208,3 +208,29 @@ def test_id_map_built_from_cached_readers(tmp_path: Path) -> None:
     assert id_map.all_thermal_codes == [7, 8]
     assert id_map.all_bus_ids == [1, 2]
     assert case.id_map is id_map  # cached
+
+
+def test_dger_latin1_is_decoded_before_parser_fallback(tmp_path: Path) -> None:
+    lines = [
+        "PLD - SETEMBRO - 2026",
+        "TIPO DE EXECUCAO        1",
+        "DURACAO DO PERIODO      1",
+        "No. DE ANOS DO EST      5",
+        "MES INICIO PRE-EST      1",
+        "MES INICIO DO ESTUDO    9",
+        "ANO INICIO DO ESTUDO 2026",
+        "No. DE ANOS PRE         0",
+        "No. DE ANOS POS         5",
+        "No. DE ANOS POS FINAL   0",
+        *(["CAMPO                  0"] * 30),
+        "TENDENCIA HIDROLOGICA   2   (1º FCF / 2º SF)",
+    ]
+    dger_path = tmp_path / "dger.dat"
+    dger_path.write_bytes(("\n".join(lines) + "\n").encode("latin-1"))
+
+    case = NewaveCase(files=make_nw_files(tmp_path))
+
+    assert case.dger.num_anos_estudo == 5
+    assert case.dger.mes_inicio_estudo == 9
+    assert case.dger.ano_inicio_estudo == 2026
+    assert case.dger.num_anos_pos_estudo == 5

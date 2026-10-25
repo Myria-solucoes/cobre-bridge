@@ -26,6 +26,8 @@ turbined flow that makes a drawn-down stage infeasible.
 
 from __future__ import annotations
 
+from cobre_bridge.core.source_reading import read_text_file
+
 import logging
 from typing import TYPE_CHECKING
 
@@ -72,7 +74,7 @@ def read_polinjus(path: Path):  # noqa: ANN201 (idecomp.libs type is optional)
         return None
     from idecomp.libs import UsinasHidreletricas
 
-    return UsinasHidreletricas.read(str(path))
+    return read_text_file(UsinasHidreletricas, path)
 
 
 def convert_tailrace_curves(case: DecompCase, id_map: DecompIdMap) -> pa.Table | None:

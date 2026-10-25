@@ -17,6 +17,8 @@ mirror, never a substitute.
 
 from __future__ import annotations
 
+from cobre_bridge.core.source_reading import read_text_file
+
 import inspect
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -497,7 +499,7 @@ def run_decomp_preflight(src: Path) -> PreflightResult:
         # RegisterFile.read() is annotated to return the base RegisterFile,
         # not the calling subclass; narrow back to Dadger so downstream
         # helpers (typed Dadger, not the object escape hatch) type-check.
-        dadger = cast(Dadger, Dadger.read(str(files.dadger)))
+        dadger = cast(Dadger, read_text_file(Dadger, files.dadger))
     except Exception as exc:  # noqa: BLE001
         checks.append(
             CheckItem(label="Deck registers readable", passed=False, detail=str(exc))

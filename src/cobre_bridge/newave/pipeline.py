@@ -564,6 +564,8 @@ def _convert_newave_case_impl(
     report.bus_count = len(buses_dict.get("buses", []))
     report.line_count = len(lines_dict.get("lines", []))
     report.stage_count = len(stages_dict.get("stages", []))
+    report.study_stage_count = case.horizon.study_months
+    report.post_study_stage_count = case.horizon.pos_months
     report.would_write_paths = [str(p) for p in writer.would_write]
 
     return report

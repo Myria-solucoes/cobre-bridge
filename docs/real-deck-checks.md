@@ -153,3 +153,18 @@ runs where the data is rather than as skipped tests in the default one:
    a reviewer knows what the number is a fact about.
 
 Until that exists, this page is the record of what those checks proved.
+
+## Myria develop integration (2026-10-25)
+
+The Myria build uses upstream develop `28f64b258aa93fae5d02686377800ac0003cac65`
+with single-pass text decoding and an explicit study/post-study horizon in the
+conversion manifest. A Latin-1 DGER from the September 2026 case loses its year
+with the source library's retry parser; selecting the encoding before parsing
+preserves the year and the complete 51-month study plus 60-month post-study tail.
+The October 2026 CCEE DECOMP revision converts to seven study stages without a
+post-study tail and validates with the matching Cobre develop runtime.
+
+These checks need the full licensed source decks and are recorded separately
+from the repository-only parser and manifest regressions. Numerical validation
+of converted cases must use a wheel built from the same Cobre commit as the CLI;
+the released PyPI wheel with the same ABI version has an older policy format.

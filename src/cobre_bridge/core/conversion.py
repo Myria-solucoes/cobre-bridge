@@ -20,6 +20,8 @@ class ConversionReport:
     bus_count: int = 0
     line_count: int = 0
     stage_count: int = 0
+    study_stage_count: int = 0
+    post_study_stage_count: int = 0
     #: Structured findings (rich tables, severities, remediation) for the CLI to
     #: render. Populated by :func:`run_conversion`.
     diagnostics: list[dx.Diagnostic] = field(default_factory=list)

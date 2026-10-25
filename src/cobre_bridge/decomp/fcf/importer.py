@@ -18,6 +18,8 @@ the converted case to read back its terminal state-vector layout.
 
 from __future__ import annotations
 
+from cobre_bridge.core.source_reading import read_text_file
+
 import json
 import logging
 import math
@@ -189,7 +191,7 @@ def _build_gnl_ring_plan(
     """The deck's GNL delivery calendar, or ``None`` when the deck has no GNL."""
     if case.files.dadgnl is None or lag_maximo_gnl == 0:
         return None
-    model = read_gnl_model(Dadgnl.read(str(case.files.dadgnl)))
+    model = read_gnl_model(read_text_file(Dadgnl, case.files.dadgnl))
     if model is None:
         return None
     with (case_dir / "system" / "thermals.json").open(encoding="utf-8") as handle:

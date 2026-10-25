@@ -344,3 +344,19 @@ def test_from_json_missing_min_cobre_version(tmp_path: Path) -> None:
     manifest = ConversionManifest.from_json(path)
 
     assert manifest.min_cobre_version is None
+
+
+@pytest.mark.parametrize("command,study,post", [("convert newave", 51, 60), ("convert decomp", 7, 0)])
+def test_manifest_preserves_study_boundary(tmp_path, command, study, post):
+    from cobre_bridge.cli.conversion_manifest import _write_conversion_manifest
+    from cobre_bridge.core.conversion import ConversionReport
+    from rich.console import Console
+
+    report = ConversionReport(stage_count=study + post, study_stage_count=study, post_study_stage_count=post)
+    _write_conversion_manifest(report, tmp_path, tmp_path, command=command,
+                               discover=make_nw_files, console=Console())
+    manifest = ConversionManifest.from_json(tmp_path / "conversion_manifest.json")
+    assert manifest.horizon == {
+        "study_stage_count": study, "post_study_stage_count": post,
+        "total_stage_count": study + post, "first_post_study_stage_id": study if post else None,
+    }

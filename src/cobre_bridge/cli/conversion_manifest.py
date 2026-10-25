@@ -61,6 +61,7 @@ class ConversionManifest(ProvenanceManifest):
     # field round-trips through ``from_json`` unchanged. Appended last so existing
     # positional construction stays unchanged.
     min_cobre_version: str | None = None
+    horizon: dict[str, int | None] = field(default_factory=dict)
 
     _NOT_FOUND_LABEL: ClassVar[str] = "Conversion manifest"
 
@@ -76,6 +77,7 @@ class ConversionManifest(ProvenanceManifest):
         diagnostics_summary: dict[str, int],
         diagnostics: list[dict[str, object]],
         min_cobre_version: str | None = None,
+        horizon: dict[str, int | None] | None = None,
     ) -> ConversionManifest:
         """Build a manifest, capturing bridge version, git SHA, and UTC time.
 
@@ -100,6 +102,7 @@ class ConversionManifest(ProvenanceManifest):
             diagnostics_summary=diagnostics_summary,
             diagnostics=diagnostics,
             min_cobre_version=min_cobre_version,
+            horizon=dict(horizon or {}),
         )
 
 
@@ -160,6 +163,14 @@ def _write_conversion_manifest(
         diagnostics_summary=summarize_diagnostics(report.diagnostics),
         diagnostics=[d.to_dict() for d in report.diagnostics],
         min_cobre_version=MIN_COBRE_VERSION,
+        horizon={
+            "study_stage_count": report.study_stage_count,
+            "post_study_stage_count": report.post_study_stage_count,
+            "total_stage_count": report.stage_count,
+            "first_post_study_stage_id": (
+                report.study_stage_count if report.post_study_stage_count else None
+            ),
+        },
     )
 
     path = dst / "conversion_manifest.json"

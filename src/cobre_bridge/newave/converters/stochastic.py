@@ -10,6 +10,8 @@ the ``scenarios/`` directory of a Cobre case.
 
 from __future__ import annotations
 
+from cobre_bridge.core.source_reading import read_text_file
+
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
@@ -687,7 +689,7 @@ def parse_cadical(path: Path) -> dict[tuple[int, int, int], float]:
     dict[tuple[int, int, int], float]
         Mapping of ``(subsystem_code, year, cal_month_1_based) -> total_mw``.
     """
-    cargas = Cadic.read(str(path)).cargas
+    cargas = read_text_file(Cadic, path).cargas
     result: dict[tuple[int, int, int], float] = {}
     if cargas is None:
         return result
