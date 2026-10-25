@@ -2142,6 +2142,7 @@ _FPHA_FIT_CONFIG_SCHEMA: dict[str, type[pl.DataType]] = {
     "volume_min_hm3": pl.Float64,
     "volume_max_hm3": pl.Float64,
     "spillage_fit_max_m3s": pl.Float64,
+    "turbined_fit_max_m3s": pl.Float64,
 }
 
 
@@ -2150,9 +2151,9 @@ def read_cobre_fpha_fit_config(cobre_output_dir: Path) -> pl.DataFrame:
     ``system/hydro_production_models.json``.
 
     One row per stage of every ``fpha`` stage range: the ``fitting_window``
-    bounds and ``spillage_fit_max_m3s``, null where the config leaves cobre's
-    default. An open-ended range runs to the last stage of ``stages.json``.
-    Empty when either file is absent.
+    bounds, ``spillage_fit_max_m3s`` and ``turbined_fit_max_m3s``, null where
+    the config leaves cobre's default. An open-ended range runs to the last
+    stage of ``stages.json``. Empty when either file is absent.
     """
     empty = pl.DataFrame(schema=_FPHA_FIT_CONFIG_SCHEMA)
     path = _find_system_json(cobre_output_dir, "hydro_production_models.json")
@@ -2184,6 +2185,7 @@ def read_cobre_fpha_fit_config(cobre_output_dir: Path) -> pl.DataFrame:
                         "volume_min_hm3": window.get("volume_min_hm3"),
                         "volume_max_hm3": window.get("volume_max_hm3"),
                         "spillage_fit_max_m3s": config.get("spillage_fit_max_m3s"),
+                        "turbined_fit_max_m3s": config.get("turbined_fit_max_m3s"),
                     }
                 )
     if not rows:

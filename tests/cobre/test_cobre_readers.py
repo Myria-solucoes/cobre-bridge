@@ -27,6 +27,7 @@ from cobre_bridge.cobre.readers import (
     cobre_software_version,
     read_cobre_bus_aggregates,
     read_cobre_bus_means,
+    read_cobre_fpha_fit_config,
     read_cobre_hydro_bus_generation,
     read_cobre_hydro_bus_labels,
     read_cobre_hydro_means,
@@ -1556,6 +1557,37 @@ class TestReadCobreLines:
 
         with pytest.raises(CobreReadError, match="lines.json"):
             read_cobre_lines(out)
+
+
+class TestReadCobreFphaFitConfig:
+    def test_reads_each_fit_range_per_stage(self, tmp_path: Path) -> None:
+        _write_stages_json(tmp_path, {0: [(0, 1.0)], 1: [(0, 1.0)]})
+        system_dir = tmp_path / "system"
+        system_dir.mkdir()
+        config = {
+            "source": "computed",
+            "fitting_window": {"volume_min_hm3": 50.0, "volume_max_hm3": 50.0},
+            "spillage_fit_max_m3s": 900.0,
+            "turbined_fit_max_m3s": 410.0,
+        }
+        models = [
+            {
+                "hydro_id": 3,
+                "stage_ranges": [
+                    {"start_stage_id": 0, "end_stage_id": None, "model": "fpha"}
+                    | {"fpha_config": config}
+                ],
+            }
+        ]
+        (system_dir / "hydro_production_models.json").write_text(
+            json.dumps({"production_models": models})
+        )
+
+        result = read_cobre_fpha_fit_config(tmp_path / "output")
+
+        assert result["stage_id"].to_list() == [0, 1]
+        assert result["spillage_fit_max_m3s"].to_list() == [900.0, 900.0]
+        assert result["turbined_fit_max_m3s"].to_list() == [410.0, 410.0]
 
 
 class TestReadCobreLineBounds:

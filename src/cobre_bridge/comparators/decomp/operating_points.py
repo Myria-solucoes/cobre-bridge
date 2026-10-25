@@ -95,8 +95,9 @@ _POINT_KEYS = ["stage", "scenario", "block"]
 
 #: Per-(plant, stage) fit inputs, and each model's mean operating point
 #: (weighted over every point) with the head components there.
-#: Cobre fits turbined flow up to the plant's static limit
-#: (``cobre_q_max_m3s``); ``cobre_q_stage_max_m3s`` is the stage's limit.
+#: Cobre fits turbined flow up to the config's ``turbined_fit_max_m3s``, else
+#: the plant's static limit (``cobre_q_max_m3s``); ``cobre_q_stage_max_m3s`` is
+#: the stage's limit.
 #: ``*_lateral_m3s`` is the flow reaching the tailrace besides the plant's own
 #: (``VU`` and ``VA``), ``*_downstream_level_m`` the downstream forebay.
 #: ``exact_check_max_mw`` is the largest gap between the exact production
@@ -1092,8 +1093,10 @@ def _fit_inputs_and_slices(
         eco_row = windows.get((code, stage), {})
         cobre_window = cobre_windows.get((cobre_id, stage), {})
         cobre_planes = cobre_by_key[(cobre_id, stage)]
-        cobre_q_max = static_q_max.get(cobre_id)
-        cobre_q_stage_max = stage_q_max.get((cobre_id, stage), cobre_q_max)
+        static_limit = static_q_max.get(cobre_id)
+        fit_q_max = cobre_window.get("turbined_fit_max_m3s")
+        cobre_q_max = static_limit if fit_q_max is None else fit_q_max
+        cobre_q_stage_max = stage_q_max.get((cobre_id, stage), static_limit)
 
         def _at_mean(prefix: str, q: float | None = None) -> _Head:
             level = m[f"{prefix}_downstream_level_m"]
