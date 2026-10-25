@@ -59,6 +59,9 @@ from cobre_bridge.decomp.converters.hydro.entity import (
     convert_initial_storage as convert_initial_storage,
 )
 from cobre_bridge.decomp.converters.hydro.entity import (
+    initial_volume_percentages as initial_volume_percentages,
+)
+from cobre_bridge.decomp.converters.hydro.entity import (
     read_hidr as read_hidr,
 )
 from cobre_bridge.decomp.converters.hydro.productivity import (
