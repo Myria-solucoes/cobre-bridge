@@ -41,6 +41,9 @@ from cobre_bridge.newave.converters.hydro.geometry import (
 from cobre_bridge.newave.converters.hydro.geometry import (
     generate_hydro_geometry as generate_hydro_geometry,
 )
+from cobre_bridge.newave.converters.hydro.geometry import (
+    seasonal_reference_volumes as seasonal_reference_volumes,
+)
 from cobre_bridge.newave.converters.hydro.overrides import (
     _apply_permanent_overrides as _apply_permanent_overrides,
 )
