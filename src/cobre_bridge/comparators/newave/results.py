@@ -1093,7 +1093,11 @@ def compare_results(
             # Surfaces are sampled at the source model's own (V, Q) fitting-grid
             # nodes (light + faithful to the model's resolution).
             fpha_metrics, fpha_surface, fpha_spill = build_fpha_comparison(
-                nw_fpha, nw_fpha_grid, cb_fpha, alignment.hydros
+                nw_fpha,
+                nw_fpha_grid,
+                cb_fpha,
+                {h.newave_code: h.cobre_id for h in alignment.hydros},
+                {h.cobre_id: h.name for h in alignment.hydros},
             )
 
     # --- Cost breakdown --- The source model typically runs a shorter horizon than

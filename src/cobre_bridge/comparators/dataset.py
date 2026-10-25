@@ -117,14 +117,18 @@ class RenderInputs:
     cobre_iteration_timing: pl.DataFrame = field(default_factory=pl.DataFrame)
     cobre_stage_costs: pl.DataFrame = field(default_factory=pl.DataFrame)
     cobre_training_seconds: float = 0.0
+    fpha_fit_inputs: pl.DataFrame = field(default_factory=pl.DataFrame)
     fpha_metrics: pl.DataFrame = field(default_factory=pl.DataFrame)
+    fpha_slices: pl.DataFrame = field(default_factory=pl.DataFrame)
     fpha_spill: pl.DataFrame = field(default_factory=pl.DataFrame)
+    fpha_split: pl.DataFrame = field(default_factory=pl.DataFrame)
     fpha_surface: pl.DataFrame = field(default_factory=pl.DataFrame)
     gc_bounds: pl.DataFrame = field(default_factory=pl.DataFrame)
     gc_constraints: list[dict] = field(default_factory=list)
     gc_lhs_cobre: pl.DataFrame = field(default_factory=pl.DataFrame)
     gc_lhs_newave: pl.DataFrame = field(default_factory=pl.DataFrame)
     hydro: pl.DataFrame = field(default_factory=pl.DataFrame)
+    hydro_masked: pl.DataFrame = field(default_factory=pl.DataFrame)
     line: pl.DataFrame = field(default_factory=pl.DataFrame)
     line_bounds: pl.DataFrame = field(default_factory=pl.DataFrame)
     line_meta: list[dict] = field(default_factory=list)
@@ -143,6 +147,7 @@ class RenderInputs:
     productivity_per_stage: pl.DataFrame = field(default_factory=pl.DataFrame)
     results: list[ResultComparison] = field(default_factory=list)
     thermal: pl.DataFrame = field(default_factory=pl.DataFrame)
+    tie_share: pl.DataFrame = field(default_factory=pl.DataFrame)
 
 
 @dataclass
